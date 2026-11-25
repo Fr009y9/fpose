@@ -1,0 +1,2486 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>FPOSE — Kho Mẫu Ảnh &amp; Trợ Lý Setup Chụp Hình</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style type="text/tailwindcss">
+    :root {
+      --bg-page: #ffffff;
+      --bg-subtle: #fafafa;
+      --ink-primary: #111111;
+      --ink-muted: #6e6e73;
+      --border-hairline: #e5e5e5;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--ink-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .vsco-card {
+      transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease;
+    }
+    .vsco-card:hover {
+      border-color: #111111;
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fadeSlideUp 0.24s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-white text-neutral-900 min-h-screen flex flex-col selection:bg-neutral-900 selection:text-white">
+
+  <!-- TOP NAVIGATION -->
+  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-neutral-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-6">
+        <!-- Logo + App Name / Settings Trigger -->
+        <button id="brandSettingsBtn" class="flex items-center gap-2.5 text-left group cursor-pointer" type="button" title="Cài đặt & Sao lưu">
+          <span class="w-6 h-6 border border-neutral-900 flex items-center justify-center text-[10px] font-mono-tech tracking-tighter font-semibold group-hover:bg-neutral-900 group-hover:text-white transition-colors">FP</span>
+          <span class="text-sm tracking-[0.22em] font-semibold uppercase">FPOSE</span>
+        </button>
+
+        <!-- Desktop / iPad Nav -->
+        <nav class="hidden sm:flex items-center gap-1" aria-label="Điều hướng chính">
+          <button data-tab="library" class="nav-tab px-3 py-1.5 text-xs tracking-wide uppercase font-medium rounded-sm transition-colors cursor-pointer">
+            Thư viện <span id="navLibCount" class="font-mono-tech text-[10px] text-neutral-400 ml-0.5">0</span>
+          </button>
+          <button data-tab="analyze" class="nav-tab px-3 py-1.5 text-xs tracking-wide uppercase font-medium rounded-sm transition-colors cursor-pointer">
+            Nạp &amp; Phân tích
+          </button>
+          <button data-tab="shotlist" class="nav-tab px-3 py-1.5 text-xs tracking-wide uppercase font-medium rounded-sm transition-colors cursor-pointer">
+            Shot List <span id="navShotCount" class="font-mono-tech text-[10px] text-neutral-400 ml-0.5">0</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Right Actions & Storage Meter -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button id="storageStatusBtn" type="button" title="Xem dung lượng IndexedDB" class="hidden md:flex items-center gap-2 px-2.5 py-1 border border-neutral-200 rounded-sm text-[11px] font-mono-tech text-neutral-500 hover:border-neutral-400 transition-colors cursor-pointer">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500" id="storageDot"></span>
+          <span id="storageText">0 MB</span>
+        </button>
+        <button id="quickAddBtn" type="button" class="px-3 py-1.5 bg-neutral-900 text-white text-xs tracking-wide uppercase font-medium rounded-sm hover:bg-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          <span>Nạp mẫu</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 sm:pb-12">
+
+    <!-- ==================== TAB 1: THƯ VIỆN MẪU ==================== -->
+    <section id="view-library" class="tab-view space-y-6">
+      <div class="space-y-3 pb-4 border-b border-neutral-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h1 class="text-lg font-medium tracking-tight">Kho Mẫu Tham Chiếu</h1>
+            <p class="text-xs text-neutral-500 mt-0.5">Lưu trữ dáng chụp chi tiết, thông số quang học và sơ đồ ánh sáng trên IndexedDB.</p>
+          </div>
+          <div class="relative w-full sm:w-64">
+            <svg class="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6.05 6.05a7.5 7.5 0 0 0 10.6 10.6Z"/></svg>
+            <input id="searchInput" type="search" placeholder="Tìm tên mẫu, dáng, ánh sáng..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900 focus:bg-white transition-colors" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <select id="filterFraming" class="px-2.5 py-1.5 text-xs bg-white border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900 cursor-pointer">
+            <option value="">Cỡ cảnh: Tất cả</option>
+            <option value="Cận mặt">Cận mặt</option>
+            <option value="Bán thân">Bán thân</option>
+            <option value="Nửa người">Nửa người</option>
+            <option value="Toàn thân">Toàn thân</option>
+          </select>
+
+          <select id="filterFocal" class="px-2.5 py-1.5 text-xs bg-white border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900 cursor-pointer">
+            <option value="">Tiêu cự: Tất cả</option>
+            <option value="wide">Góc rộng (&lt;35mm)</option>
+            <option value="standard">Tiêu chuẩn (35–60mm)</option>
+            <option value="portrait">Chân dung (61–135mm)</option>
+            <option value="tele">Tele (&gt;135mm)</option>
+          </select>
+
+          <select id="filterContext" class="px-2.5 py-1.5 text-xs bg-white border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900 cursor-pointer">
+            <option value="">Bối cảnh: Tất cả</option>
+            <option value="Trong nhà / Cửa sổ">Trong nhà / Cửa sổ</option>
+            <option value="Studio / Phông trơn">Studio / Phông trơn</option>
+            <option value="Ngoài trời nắng gắt">Ngoài trời nắng gắt</option>
+            <option value="Giờ vàng (Golden Hour)">Giờ vàng (Golden Hour)</option>
+            <option value="Bóng râm / Trời mây">Bóng râm / Trời mây</option>
+            <option value="Ban đêm / Đèn phố">Ban đêm / Đèn phố</option>
+          </select>
+
+          <select id="filterPoseGroup" class="px-2.5 py-1.5 text-xs bg-white border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900 cursor-pointer">
+            <option value="">Nhóm dáng: Tất cả</option>
+            <option value="Đứng">Đứng</option>
+            <option value="Ngồi">Ngồi</option>
+            <option value="Chuyển động">Chuyển động</option>
+            <option value="Chân dung cận">Chân dung cận</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="libraryEmptyState" class="hidden py-16 sm:py-24 px-4 border border-dashed border-neutral-300 bg-neutral-50/50 rounded-sm text-center max-w-2xl mx-auto animate-in">
+        <div class="w-12 h-12 mx-auto mb-4 border border-neutral-300 bg-white flex items-center justify-center rounded-sm">
+          <svg class="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+          </svg>
+        </div>
+        <h2 class="text-base font-medium tracking-tight text-neutral-900">Chưa có mẫu ảnh nào trong kho</h2>
+        <p class="text-xs text-neutral-500 max-w-md mx-auto mt-1.5 leading-relaxed">
+          Nạp ảnh tham chiếu để FPOSE trích xuất EXIF, phân tích hướng sáng hội tụ - vùng che khuất, nén thành 2 bản WebP và lưu bền vững vào IndexedDB.
+        </p>
+        <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+          <button id="emptyUploadBtn" type="button" class="w-full sm:w-auto px-4 py-2 bg-neutral-900 text-white text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-neutral-800 transition-colors cursor-pointer">
+            Nạp hình ảnh mẫu đầu tiên
+          </button>
+          <button id="emptyDemoBtn" type="button" class="w-full sm:w-auto px-4 py-2 bg-white border border-neutral-300 text-neutral-800 text-xs uppercase tracking-wider font-medium rounded-sm hover:border-neutral-900 transition-colors cursor-pointer">
+            Tạo 3 mẫu Demo để trải nghiệm
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Empty State -->
+      <div id="filterEmptyState" class="hidden py-16 px-4 border border-neutral-200 bg-neutral-50/40 rounded-sm text-center animate-in">
+        <p class="text-sm font-medium text-neutral-800">Không tìm thấy mẫu khớp với bộ lọc hiện tại</p>
+        <p class="text-xs text-neutral-500 mt-1">Thử đặt lại một vài tiêu chí để xem toàn bộ kho mẫu.</p>
+        <button id="resetFiltersBtn" type="button" class="mt-4 px-3.5 py-1.5 border border-neutral-900 text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-neutral-900 hover:text-white transition-colors cursor-pointer">
+          Xóa tất cả bộ lọc
+        </button>
+      </div>
+
+      <!-- Library Grid -->
+      <div id="libraryGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
+    </section>
+
+    <!-- ==================== TAB 2: NẠP & PHÂN TÍCH MẪU ==================== -->
+    <section id="view-analyze" class="tab-view hidden space-y-6">
+      <div class="pb-4 border-b border-neutral-200">
+        <h1 class="text-lg font-medium tracking-tight">Nạp &amp; Phân tích Mẫu Ảnh</h1>
+      </div>
+
+      <!-- Dropzone -->
+      <div id="dropZone" class="border border-dashed border-neutral-300 bg-neutral-50/60 hover:bg-neutral-50 hover:border-neutral-900 transition-all rounded-sm p-6 sm:p-10 text-center cursor-pointer">
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*" class="hidden" />
+        <div class="max-w-md mx-auto">
+          <div class="w-10 h-10 mx-auto mb-3 border border-neutral-300 bg-white flex items-center justify-center rounded-sm">
+            <svg class="w-5 h-5 text-neutral-700" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-neutral-900">Kéo thả ảnh vào đây hoặc nhấn để chọn tệp</p>
+        </div>
+      </div>
+
+      <!-- Analysis Idle Placeholder -->
+      <div id="analyzerIdleHint" class="py-10 px-4 border border-neutral-200 bg-white rounded-sm text-center">
+        <p class="text-xs text-neutral-500">Sau khi chọn ảnh, hệ thống sẽ phân tích vector hướng sáng hội tụ, vùng che khuất, nguồn sáng phụ và hiển thị biểu mẫu gán thẻ chi tiết tại đây.</p>
+      </div>
+
+      <!-- Active Analyzer Workspace -->
+      <div id="analyzerWorkspace" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in">
+        <!-- Left Column: Visual Preview & Detailed Lighting Analysis -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="border border-neutral-200 bg-neutral-50 p-2 rounded-sm">
+            <div class="overflow-hidden bg-neutral-100 flex items-center justify-center">
+              <img id="previewImg" src="" alt="Xem trước ảnh mẫu" class="max-h-[440px] w-full object-contain" />
+            </div>
+            <div class="flex items-center justify-between mt-2 px-1">
+              <span id="previewMetaDim" class="font-mono-tech text-[11px] text-neutral-500">Preview 720px WebP</span>
+              <span id="blobSizeBadge" class="font-mono-tech text-[11px] text-neutral-500">— KB</span>
+            </div>
+          </div>
+
+          <!-- Detailed Lighting Telemetry & Top-Down Diagram -->
+          <div class="border border-neutral-200 p-4 rounded-sm space-y-4 bg-white">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] uppercase tracking-wider font-semibold text-neutral-700">Sơ đồ bố trí ánh sáng ước lượng</span>
+              <span id="cctBadge" class="font-mono-tech text-[11px] px-2 py-0.5 bg-neutral-100 text-neutral-800 rounded-sm">~5500 K</span>
+            </div>
+
+            <div id="analyzerLightingSvg" class="w-full h-48 bg-neutral-50 border border-neutral-200 rounded-sm flex items-center justify-center p-1"></div>
+
+            <div class="p-3 bg-neutral-50 border border-neutral-200 rounded-sm space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] uppercase tracking-wider font-semibold text-neutral-600">Giải mã hội tụ sáng &amp; vùng che khuất</span>
+                <span id="diagramCaption" class="font-mono-tech text-[10px] font-semibold text-neutral-900">—</span>
+              </div>
+              <p id="lightingVectorDetail" class="text-xs text-neutral-700 leading-relaxed">—</p>
+              <p id="secondaryLightDetail" class="text-[11px] text-neutral-500 leading-relaxed pt-1 border-t border-neutral-200/70">—</p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="p-2 bg-neutral-50 border border-neutral-100 rounded-sm">
+                <div class="text-[10px] uppercase text-neutral-400">Tương phản RMS</div>
+                <div id="metricContrast" class="font-mono-tech text-xs font-medium mt-0.5">—</div>
+              </div>
+              <div class="p-2 bg-neutral-50 border border-neutral-100 rounded-sm">
+                <div class="text-[10px] uppercase text-neutral-400">Vùng sáng &gt;85%</div>
+                <div id="metricHighlights" class="font-mono-tech text-xs font-medium mt-0.5">—</div>
+              </div>
+              <div class="p-2 bg-neutral-50 border border-neutral-100 rounded-sm">
+                <div class="text-[10px] uppercase text-neutral-400">Vùng tối &lt;15%</div>
+                <div id="metricShadows" class="font-mono-tech text-xs font-medium mt-0.5">—</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10px] uppercase text-neutral-400 mb-1.5">Bảng màu chủ đạo (5 sắc độ)</div>
+              <div id="paletteSwatches" class="grid grid-cols-5 h-6 rounded-sm overflow-hidden border border-neutral-200"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Detailed Subject Pose & Lighting Form -->
+        <form id="saveSampleForm" class="lg:col-span-7 border border-neutral-200 p-4 sm:p-6 rounded-sm bg-white space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200">
+            <div>
+              <h2 class="text-sm font-semibold uppercase tracking-wider">Hồ sơ Kỹ thuật &amp; Mô tả Chủ thể</h2>
+              <p id="exifStatusText" class="text-[11px] text-neutral-500 mt-0.5">Đang chờ dữ liệu EXIF...</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="geminiAnalyzeBtn" type="button" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-indigo-600 text-white text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-95 transition-all shadow-sm cursor-pointer flex items-center gap-1.5">
+                <span>✨ AI Phân tích dáng &amp; thông số</span>
+              </button>
+              <span id="exifBadge" class="text-[10px] font-mono-tech uppercase px-2 py-1 border border-neutral-200 rounded-sm bg-neutral-50">EXIF</span>
+            </div>
+          </div>
+
+          <!-- Title & Context -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1">Tên mẫu tham chiếu *</label>
+              <input id="inTitle" type="text" required placeholder="VD: Chân dung ngược nắng góc 3/4" class="w-full px-3 py-2 text-xs border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900" />
+            </div>
+            <div>
+              <label class="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1">Bối cảnh chụp</label>
+              <select id="inContext" class="w-full px-3 py-2 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                <option value="Trong nhà / Cửa sổ">Trong nhà / Cửa sổ</option>
+                <option value="Studio / Phông trơn">Studio / Phông trơn</option>
+                <option value="Ngoài trời nắng gắt">Ngoài trời nắng gắt</option>
+                <option value="Giờ vàng (Golden Hour)">Giờ vàng (Golden Hour)</option>
+                <option value="Bóng râm / Trời mây">Bóng râm / Trời mây</option>
+                <option value="Ban đêm / Đèn phố">Ban đêm / Đèn phố</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Optical Specs -->
+          <div class="pt-3 border-t border-neutral-100 space-y-2.5">
+            <div class="text-[11px] uppercase tracking-wider font-semibold text-neutral-700">Thông số Quang học (EXIF)</div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">Tiêu cự (mm)</label>
+                <input id="inFocal" type="number" min="8" max="800" step="1" placeholder="85" class="w-full px-2.5 py-1.5 text-xs font-mono-tech border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">Khẩu độ (f/)</label>
+                <input id="inAperture" type="number" min="0.95" max="32" step="0.1" placeholder="1.8" class="w-full px-2.5 py-1.5 text-xs font-mono-tech border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">Tốc độ</label>
+                <input id="inShutter" type="text" placeholder="1/250s" class="w-full px-2.5 py-1.5 text-xs font-mono-tech border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">ISO</label>
+                <input id="inIso" type="number" min="25" max="102400" placeholder="200" class="w-full px-2.5 py-1.5 text-xs font-mono-tech border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Detailed Pose Attribute Selectors -->
+          <div class="pt-3 border-t border-neutral-100 space-y-3">
+            <div class="text-[11px] uppercase tracking-wider font-semibold text-neutral-700">Mô tả chi tiết chủ thể &amp; dáng chụp</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">1. Cỡ cảnh (Framing)</label>
+                <select id="inFraming" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Cận mặt">Cận mặt</option>
+                  <option value="Bán thân">Bán thân</option>
+                  <option value="Nửa người">Nửa người</option>
+                  <option value="Toàn thân">Toàn thân</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">2. Nhóm dáng (Pose)</label>
+                <select id="inPoseGroup" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900 font-medium">
+                  <option value="Đứng">Đứng</option>
+                  <option value="Ngồi">Ngồi</option>
+                  <option value="Chuyển động">Chuyển động</option>
+                  <option value="Chân dung cận">Chân dung cận</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">3. Góc máy (Angle)</label>
+                <select id="inAngle" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Ngang tầm mắt">Ngang tầm mắt</option>
+                  <option value="Từ trên xuống">Từ trên xuống</option>
+                  <option value="Hất từ dưới lên">Hất từ dưới lên</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">4. Góc mặt &amp; Đầu</label>
+                <select id="inHeadAngle" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Chính diện">Chính diện</option>
+                  <option value="Góc 3/4">Góc 3/4</option>
+                  <option value="Góc nghiêng 90°">Góc nghiêng 90°</option>
+                  <option value="Cúi nhẹ cằm">Cúi nhẹ cằm</option>
+                  <option value="Ngoái qua vai">Ngoái qua vai</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">5. Ánh mắt (Gaze)</label>
+                <select id="inGaze" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Nhìn thẳng ống kính">Nhìn thẳng ống kính</option>
+                  <option value="Nhìn lệch khung hình">Nhìn lệch khung hình</option>
+                  <option value="Nhìn xuống">Nhìn xuống</option>
+                  <option value="Nhắm mắt">Nhắm mắt</option>
+                  <option value="Nheo mắt nhẹ">Nheo mắt nhẹ</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">6. Nụ cười &amp; Miệng</label>
+                <select id="inSmile" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Cười mỉm">Cười mỉm</option>
+                  <option value="Cười tươi lộ răng">Cười tươi lộ răng</option>
+                  <option value="Môi khép lạnh lùng">Môi khép lạnh lùng</option>
+                  <option value="Hơi hé môi">Hơi hé môi</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">7. Thần thái (Mood)</label>
+                <select id="inMood" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Trong trẻo">Trong trẻo</option>
+                  <option value="Sắc sảo/Editorial">Sắc sảo/Editorial</option>
+                  <option value="Đời thường tự nhiên">Đời thường tự nhiên</option>
+                  <option value="Trầm tư/Moody">Trầm tư/Moody</option>
+                  <option value="Tinh nghịch">Tinh nghịch</option>
+                </select>
+              </div>
+
+              <div class="col-span-2">
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">8. Tư thế tay &amp; Vai</label>
+                <select id="inHandPose" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Chạm mặt/tóc">Chạm mặt/tóc</option>
+                  <option value="Đút túi">Đút túi</option>
+                  <option value="Cầm đạo cụ">Cầm đạo cụ</option>
+                  <option value="Tựa điểm tựa">Tựa điểm tựa</option>
+                  <option value="Dồn trọng tâm 1 chân">Dồn trọng tâm 1 chân</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lighting Setup & Secondary Lights -->
+          <div class="pt-3 border-t border-neutral-100 space-y-3">
+            <div class="text-[11px] uppercase tracking-wider font-semibold text-neutral-700">Bố trí nguồn sáng chính &amp; phụ</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">Góc đánh sáng chính (Key Vector)</label>
+                <select id="inLightDir" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Chếch Trái 30°–45° (Rembrandt/Loop Trái)">Chếch Trái 30°–45° (Rembrandt/Loop Trái)</option>
+                  <option value="Đánh Ngang Trái 75°–90° (Split Left)">Đánh Ngang Trái 75°–90° (Split Left)</option>
+                  <option value="Chếch Phải 30°–45° (Rembrandt/Loop Phải)">Chếch Phải 30°–45° (Rembrandt/Loop Phải)</option>
+                  <option value="Đánh Ngang Phải 75°–90° (Split Right)">Đánh Ngang Phải 75°–90° (Split Right)</option>
+                  <option value="Từ Trên Xuống (Butterfly / Paramount)">Từ Trên Xuống (Butterfly / Paramount)</option>
+                  <option value="Ngược Nắng Mặt Trời (Sun Backlight 150°–180°)">Ngược Nắng Mặt Trời (Sun Backlight 150°–180°)</option>
+                  <option value="Thẳng Trục Máy / Ánh Sáng Đều (Front Fill)">Thẳng Trục Máy / Ánh Sáng Đều (Front Fill)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-neutral-500 mb-1">Tính chất &amp; Tương phản</label>
+                <select id="inLightQuality" class="w-full px-2.5 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white focus:outline-none focus:border-neutral-900">
+                  <option value="Mềm, chuyển vùng tối êm (Soft Diffused)">Mềm, chuyển vùng tối êm (Soft Diffused)</option>
+                  <option value="Gắt, bóng đổ sắc cạnh (Hard / Dramatic)">Gắt, bóng đổ sắc cạnh (Hard / Dramatic)</option>
+                  <option value="Sáng cao (High-Key)">Sáng cao (High-Key)</option>
+                  <option value="Tối sâu (Low-Key)">Tối sâu (Low-Key)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-4 pt-1">
+              <label class="inline-flex items-center gap-2 text-xs cursor-pointer">
+                <input id="inHasReflector" type="checkbox" class="accent-neutral-900" />
+                <span>Hắt sáng bù bóng (Reflector / Fill)</span>
+              </label>
+              <label class="inline-flex items-center gap-2 text-xs cursor-pointer">
+                <input id="inHasRim" type="checkbox" class="accent-neutral-900" />
+                <span>Đèn ven tách tóc/vai (Rim Light)</span>
+              </label>
+              <label class="inline-flex items-center gap-2 text-xs cursor-pointer">
+                <input id="inHasSunBacklight" type="checkbox" class="accent-neutral-900" />
+                <span>Ánh sáng mặt trời ngược nắng (Sun Rim/Flare)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Pose & Setup Notes -->
+          <div class="pt-3 border-t border-neutral-100 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1">Ghi chú chỉ đạo dáng (Pose cues)</label>
+              <textarea id="inPoseCues" rows="2" placeholder="VD: Hạ vai trước, nghiêng mặt 3/4 về phía nguồn sáng, tay chạm nhẹ cổ áo." class="w-full px-3 py-2 text-xs border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900"></textarea>
+            </div>
+            <div>
+              <label class="block text-[11px] uppercase tracking-wider text-neutral-500 mb-1">Ghi chú setup ánh sáng</label>
+              <textarea id="inSetupNote" rows="2" placeholder="VD: Nắng chiều ngược sau lưng 160°, hắt sáng bạc phía trước nâng sáng vùng mặt." class="w-full px-3 py-2 text-xs border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900"></textarea>
+            </div>
+          </div>
+
+          <div class="pt-2 flex items-center justify-end gap-2.5">
+            <button id="cancelAnalyzeBtn" type="button" class="px-4 py-2 border border-neutral-300 text-xs uppercase tracking-wider font-medium rounded-sm hover:border-neutral-900 transition-colors cursor-pointer">
+              Hủy
+            </button>
+            <button type="submit" class="px-5 py-2 bg-neutral-900 text-white text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-neutral-800 transition-colors cursor-pointer">
+              Lưu vào IndexedDB
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: SHOT LIST ==================== -->
+    <section id="view-shotlist" class="tab-view hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-200">
+        <div>
+          <h1 class="text-lg font-medium tracking-tight">Shot List Buổi Chụp</h1>
+          <p class="text-xs text-neutral-500 mt-0.5 font-medium text-neutral-700">Chọn mẫu tại thư viện vào shot list</p>
+        </div>
+        <button id="clearShotListBtn" type="button" class="px-3 py-1.5 border border-neutral-200 text-xs text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 rounded-sm transition-colors cursor-pointer w-fit">
+          Xóa danh sách đã xong
+        </button>
+      </div>
+
+      <div id="shotListEmpty" class="hidden py-16 px-4 border border-dashed border-neutral-300 bg-neutral-50/50 rounded-sm text-center max-w-xl mx-auto">
+        <p class="text-sm font-medium text-neutral-800">Shot List đang trống</p>
+        <p class="text-xs text-neutral-500 mt-1">Chọn mẫu tại thư viện vào shot list để bắt đầu tác nghiệp tại hiện trường.</p>
+        <button id="goLibraryFromShotBtn" type="button" class="mt-4 px-4 py-2 bg-neutral-900 text-white text-xs uppercase tracking-wider font-medium rounded-sm cursor-pointer">
+          Mở Thư viện mẫu
+        </button>
+      </div>
+
+      <div id="shotListContainer" class="space-y-3"></div>
+    </section>
+
+    <!-- ==================== TAB 4 / MODAL: SETTING & BACKUP ==================== -->
+    <section id="view-settings" class="tab-view hidden space-y-6 animate-in">
+      <div class="pb-4 border-b border-neutral-200 flex items-center justify-between">
+        <div>
+          <h1 class="text-lg font-medium tracking-tight">Cài đặt &amp; Sao lưu hệ thống</h1>
+          <p class="text-xs text-neutral-500 mt-0.5">Quản lý dung lượng IndexedDB, cấu hình Gemini API Key và sao lưu dữ liệu toàn bộ ứng dụng FPOSE.</p>
+        </div>
+        <button id="backToLibraryBtn" type="button" class="px-3 py-1.5 bg-neutral-900 text-white text-xs uppercase tracking-wider font-medium rounded-sm cursor-pointer">
+          Quay lại Thư viện
+        </button>
+      </div>
+
+      <!-- Khu vực cấu hình Gemini API Key trong trang Setting -->
+      <div class="border border-neutral-200 rounded-sm p-5 sm:p-6 bg-white space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">AI Assistant BYOK</span>
+            <h2 class="text-base font-medium mt-0.5">Trợ lý AI Phân tích Hình ảnh (Gemini API)</h2>
+          </div>
+          <span id="geminiStatusBadge" class="text-[11px] font-mono-tech px-2.5 py-1 border border-neutral-200 rounded-sm bg-neutral-50 text-neutral-500">Chưa cấu hình</span>
+        </div>
+
+        <div class="space-y-3">
+          <label class="block text-xs uppercase tracking-wider text-neutral-700 font-medium">Gemini API Key cá nhân</label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <div class="relative flex-1">
+              <input id="geminiKeyInput" type="password" placeholder="Dán mã API bắt đầu bằng AIzaSy..." class="w-full px-3 py-2 pr-10 text-xs font-mono-tech border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900" />
+              <button id="toggleApiKeyVisibility" type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 cursor-pointer" title="Ẩn/Hiện API Key">
+                <svg id="eyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="saveApiKeyBtn" type="button" class="px-4 py-2 bg-neutral-900 text-white text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-neutral-800 transition-colors cursor-pointer">
+                Lưu Key
+              </button>
+              <button id="testApiKeyBtn" type="button" class="px-3.5 py-2 border border-neutral-300 text-xs uppercase tracking-wider font-medium rounded-sm hover:border-neutral-900 transition-colors cursor-pointer">
+                Kiểm tra kết nối
+              </button>
+              <button id="clearApiKeyBtn" type="button" class="px-3 py-2 border border-red-200 text-xs text-red-600 hover:bg-red-50 rounded-sm transition-colors cursor-pointer">
+                Xóa Key
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Khung chú thích hướng dẫn lấy & nhập Key -->
+        <div class="p-4 bg-neutral-50 border border-neutral-200 rounded-sm space-y-2 text-xs text-neutral-700 leading-relaxed">
+          <div class="font-semibold text-neutral-900">Hướng dẫn lấy Gemini API Key miễn phí (mất ~1 phút):</div>
+          <ol class="list-decimal pl-4 space-y-1 text-neutral-600">
+            <li>Truy cập <strong>Google AI Studio</strong> tại đường dẫn mở tab mới: <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" class="text-indigo-600 underline font-medium">https://aistudio.google.com/</a> và đăng nhập bằng tài khoản Google[cite: 1].</li>
+            <li>Chọn mục <strong>Get API key</strong> ở thanh menu bên trái -> bấm <strong>Create API key</strong>[cite: 1].</li>
+            <li>Sao chép đoạn mã bắt đầu bằng <code class="font-mono-tech text-[11px] bg-white px-1 py-0.5 border border-neutral-200">AIzaSy...</code> và dán vào ô phía trên, sau đó bấm <strong>Lưu Key</strong>[cite: 1].</li>
+            <li><em>Bảo mật:</em> API Key chỉ được lưu cục bộ trên trình duyệt của bạn (<code class="font-mono-tech text-[11px] bg-white px-1 py-0.5 border border-neutral-200">localStorage</code>), hoàn toàn không gửi đi bất kỳ máy chủ trung gian nào[cite: 1].</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Backup Export / Import Card -->
+        <div class="lg:col-span-7 border border-neutral-200 rounded-sm p-5 sm:p-6 bg-white space-y-5">
+          <div>
+            <span class="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">Backup &amp; Restore</span>
+            <h2 class="text-base font-medium mt-0.5">Xuất / Nhập dữ liệu JSON</h2>
+          </div>
+
+          <div class="p-4 bg-neutral-50 border border-neutral-200 rounded-sm space-y-2 text-xs text-neutral-700 leading-relaxed">
+            <div class="font-semibold text-neutral-900">Hướng dẫn sử dụng tính năng Backup:</div>
+            <ul class="list-disc pl-4 space-y-1.5 text-neutral-600">
+              <li><strong class="text-neutral-900">Xuất bản sao lưu (Export JSON):</strong> Đóng gói toàn bộ Blob WebP, EXIF, phân tích ánh sáng, thẻ dáng và Shot List thành 1 tệp <code class="font-mono-tech text-[11px] bg-white px-1 py-0.5 border border-neutral-200">.json</code> duy nhất.</li>
+              <li><strong class="text-neutral-900">Khôi phục dữ liệu (Import JSON):</strong> Chọn tệp sao lưu để khôi phục toàn bộ dữ liệu vào IndexedDB mà không làm giảm chất lượng ảnh.</li>
+            </ul>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button id="exportJsonBtn" type="button" class="px-4 py-2.5 bg-neutral-900 text-white text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-neutral-800 transition-colors cursor-pointer flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+              <span>Xuất tệp Backup (.JSON)</span>
+            </button>
+
+            <label class="px-4 py-2.5 bg-white border border-neutral-900 text-neutral-900 text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-neutral-50 transition-colors cursor-pointer flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+              <span>Nhập tệp Backup (.JSON)</span>
+              <input id="importJsonInput" type="file" accept="application/json" class="hidden" />
+            </label>
+          </div>
+        </div>
+
+        <!-- IndexedDB Storage Telemetry Card -->
+        <div class="lg:col-span-5 border border-neutral-200 rounded-sm p-5 sm:p-6 bg-white space-y-5 h-fit">
+          <div>
+            <span class="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">Storage Engine</span>
+            <h2 class="text-base font-medium mt-0.5">Dung lượng IndexedDB</h2>
+          </div>
+
+          <div class="space-y-2.5 text-xs">
+            <div class="flex justify-between font-mono-tech">
+              <span class="text-neutral-500">Đã sử dụng:</span>
+              <span id="settingsStorageUsed" class="font-semibold text-neutral-900">Đang đo...</span>
+            </div>
+            <div class="flex justify-between font-mono-tech">
+              <span class="text-neutral-500">Hạn mức trình duyệt:</span>
+              <span id="settingsStorageQuota" class="font-semibold text-neutral-900">—</span>
+            </div>
+            <div class="w-full h-2 bg-neutral-100 rounded-sm overflow-hidden">
+              <div id="settingsStorageBar" class="h-full bg-neutral-900 transition-all" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between font-mono-tech text-[11px] text-neutral-500 pt-1">
+              <span>Tổng số mẫu WebP:</span>
+              <span id="settingsSampleCount">0 mẫu</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-neutral-100 flex items-center justify-between">
+            <button id="refreshStorageBtn" type="button" class="text-xs text-neutral-600 hover:text-neutral-900 underline cursor-pointer">
+              Làm mới bộ đo
+            </button>
+            <button id="clearAllDataBtn" type="button" class="px-3 py-1.5 border border-red-200 text-xs text-red-600 hover:bg-red-50 rounded-sm transition-colors cursor-pointer">
+              Xóa toàn bộ dữ liệu
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-6 border-t border-neutral-200 flex items-center gap-3 bg-neutral-50 p-4 rounded-sm border">
+        <div class="w-8 h-8 border border-neutral-900 flex items-center justify-center text-xs font-mono-tech font-semibold bg-neutral-900 text-white">FP</div>
+        <div>
+          <div class="text-xs font-semibold text-neutral-900">FPOSE by Froggy</div>
+          <div class="text-[11px] text-neutral-500">Free for all photographers.</div>
+          <div class="font-mono-tech text-[10px] text-neutral-400 mt-0.5">ver 1.0.0</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MOBILE BOTTOM NAVIGATION -->
+  <nav class="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-neutral-200 grid grid-cols-3 h-14" aria-label="Điều hướng di động">
+    <button data-tab="library" class="mobile-tab flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg>
+      <span>Thư viện</span>
+    </button>
+    <button data-tab="analyze" class="mobile-tab flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      <span>Nạp mẫu</span>
+    </button>
+    <button data-tab="shotlist" class="mobile-tab flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+      <span>Shot List</span>
+    </button>
+  </nav>
+
+  <!-- SAMPLE DETAIL & EDIT MODAL -->
+  <div id="detailModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white border border-neutral-200 rounded-sm max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-xl animate-in">
+      <div class="bg-white border-b border-neutral-200 px-4 sm:px-6 py-3 flex items-center justify-between shrink-0">
+        <div>
+          <span id="modalContextBadge" class="text-[10px] font-mono-tech uppercase tracking-wider text-neutral-500">—</span>
+          <h3 id="modalTitle" class="text-sm sm:text-base font-medium text-neutral-900">—</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="modalToggleEditBtn" type="button" class="px-3 py-1 bg-neutral-900 text-white text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-neutral-800 transition-colors cursor-pointer">
+            Chỉnh sửa
+          </button>
+          <button id="closeModalBtn" type="button" class="p-1.5 text-neutral-500 hover:text-neutral-900 cursor-pointer" aria-label="Đóng">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="modalBody" class="p-4 sm:p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 items-start"></div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // =========================================================
+      // 1. INDEXEDDB WRAPPER
+      // =========================================================
+      const DB_NAME = 'fpose_idb_v2';
+      const DB_VERSION = 1;
+      const STORE_SAMPLES = 'samples';
+      const STORE_SHOTLIST = 'shotlist';
+      const META_KEY_TAB = 'fpose_active_tab_v3';
+      const LOCALSTORAGE_GEMINI_KEY = 'fpose_gemini_api_key';
+
+      const idb = {
+        db: null,
+        open() {
+          if (this.db) return Promise.resolve(this.db);
+          return new Promise((resolve, reject) => {
+            if (!window.indexedDB) {
+              reject(new Error('IDB_UNSUPPORTED'));
+              return;
+            }
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = (e) => {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains(STORE_SAMPLES)) {
+                db.createObjectStore(STORE_SAMPLES, { keyPath: 'id' });
+              }
+              if (!db.objectStoreNames.contains(STORE_SHOTLIST)) {
+                db.createObjectStore(STORE_SHOTLIST, { keyPath: 'id' });
+              }
+            };
+            req.onsuccess = (e) => {
+              this.db = e.target.result;
+              resolve(this.db);
+            };
+            req.onerror = () => reject(req.error || new Error('IDB_OPEN_FAILED'));
+          });
+        },
+        async getAll(storeName) {
+          const db = await this.open();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(storeName, 'readonly');
+            const req = tx.objectStore(storeName).getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+          });
+        },
+        async put(storeName, record) {
+          const db = await this.open();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(storeName, 'readwrite');
+            tx.objectStore(storeName).put(record);
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error);
+          });
+        },
+        async delete(storeName, id) {
+          const db = await this.open();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(storeName, 'readwrite');
+            tx.objectStore(storeName).delete(id);
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error);
+          });
+        },
+        async clear(storeName) {
+          const db = await this.open();
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(storeName, 'readwrite');
+            tx.objectStore(storeName).clear();
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error);
+          });
+        }
+      };
+
+      // =========================================================
+      // 2. STATE & OBJECT URL MANAGEMENT
+      // =========================================================
+      const state = {
+        samples: [],
+        shotList: [],
+        activeTab: 'library',
+        pendingDraft: null,
+        objectUrls: new Map(),
+        currentModalSampleId: null,
+        modalEditMode: false
+      };
+
+      function getBlobUrl(cacheKey, blob) {
+        if (!blob || !(blob instanceof Blob)) return '';
+        if (state.objectUrls.has(cacheKey)) {
+          return state.objectUrls.get(cacheKey);
+        }
+        const url = URL.createObjectURL(blob);
+        state.objectUrls.set(cacheKey, url);
+        return url;
+      }
+
+      function revokeBlobUrlsForPrefix(prefix) {
+        for (const [k, url] of state.objectUrls.entries()) {
+          if (k.startsWith(prefix)) {
+            URL.revokeObjectURL(url);
+            state.objectUrls.delete(k);
+          }
+        }
+      }
+
+      // =========================================================
+      // 3. UTILITIES
+      // =========================================================
+      function escapeHtml(str) {
+        return String(str ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function generateId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+          return window.crypto.randomUUID();
+        }
+        return 'fp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      }
+
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        const palette = {
+          success: 'bg-neutral-900 text-white border-neutral-900',
+          warning: 'bg-amber-50 text-amber-950 border-amber-300',
+          error: 'bg-red-600 text-white border-red-700',
+          info: 'bg-white text-neutral-900 border-neutral-300'
+        }[type] || 'bg-white text-neutral-900 border-neutral-300';
+
+        toast.className = `pointer-events-auto px-3.5 py-2.5 text-xs border rounded-sm shadow-lg flex items-start justify-between gap-2 animate-in ${palette}`;
+        toast.innerHTML = `<span class="leading-snug">${escapeHtml(message)}</span><button type="button" class="opacity-70 hover:opacity-100 text-[11px] leading-none cursor-pointer">✕</button>`;
+        toast.querySelector('button').addEventListener('click', () => toast.remove());
+        container.appendChild(toast);
+        setTimeout(() => {
+          if (toast.parentNode) toast.remove();
+        }, 4400);
+      }
+
+      function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+          if (!blob || !(blob instanceof Blob)) {
+            resolve('');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function base64ToBlob(dataUrl) {
+        const s = String(dataUrl ?? '').trim();
+        const match = s.match(/^data:(image\/(?:webp|jpeg|jpg|png));base64,([A-Za-z0-9+/=]+)$/i);
+        if (!match) return null;
+        const mime = match[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : match[1].toLowerCase();
+        const binStr = atob(match[2]);
+        const len = binStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binStr.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: mime });
+      }
+
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+      }
+
+      async function updateStorageMetrics() {
+        let blobBytes = 0;
+        for (const s of state.samples) {
+          if (s.thumbBlob instanceof Blob) blobBytes += s.thumbBlob.size;
+          if (s.previewBlob instanceof Blob) blobBytes += s.previewBlob.size;
+        }
+
+        const topText = document.getElementById('storageText');
+        const topDot = document.getElementById('storageDot');
+        const setUsed = document.getElementById('settingsStorageUsed');
+        const setQuota = document.getElementById('settingsStorageQuota');
+        const setBar = document.getElementById('settingsStorageBar');
+        const setCount = document.getElementById('settingsSampleCount');
+
+        if (setCount) setCount.textContent = `${state.samples.length} mẫu (${formatBytes(blobBytes)} WebP)`;
+
+        if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+          try {
+            const est = await navigator.storage.estimate();
+            const usage = est.usage || blobBytes;
+            const quota = est.quota || (250 * 1024 * 1024);
+            const pct = Math.min(100, Math.max(usage > 0 ? 1 : 0, Math.round((usage / quota) * 100)));
+
+            if (topText) topText.textContent = `${formatBytes(usage)}`;
+            if (topDot) topDot.className = 'w-1.5 h-1.5 rounded-full ' + (pct > 85 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-emerald-500');
+            if (setUsed) setUsed.textContent = `${formatBytes(usage)} (${pct}%)`;
+            if (setQuota) setQuota.textContent = formatBytes(quota);
+            if (setBar) setBar.style.width = `${pct}%`;
+            return;
+          } catch (_) {}
+        }
+
+        if (topText) topText.textContent = `${formatBytes(blobBytes)}`;
+        if (setUsed) setUsed.textContent = formatBytes(blobBytes);
+        if (setQuota) setQuota.textContent = 'Không giới hạn cố định';
+        if (setBar) setBar.style.width = blobBytes > 0 ? '4%' : '0%';
+      }
+
+      function saveSmallPref(key, val) {
+        try { localStorage.setItem(key, JSON.stringify(val)); } catch (_) {}
+      }
+
+      function loadSmallPref(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch (_) {
+          return fallback;
+        }
+      }
+
+      // =========================================================
+      // 4. WEBP COMPRESSION & ANALYZER
+      // =========================================================
+      function canvasToWebPBlob(sourceCanvas, maxSide, quality) {
+        return new Promise((resolve) => {
+          const w = sourceCanvas.width;
+          const h = sourceCanvas.height;
+          const scale = Math.min(1, maxSide / Math.max(w, h));
+          const tw = Math.max(1, Math.round(w * scale));
+          const th = Math.max(1, Math.round(h * scale));
+
+          const c = document.createElement('canvas');
+          c.width = tw;
+          c.height = th;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, tw, th);
+          ctx.drawImage(sourceCanvas, 0, 0, tw, th);
+
+          c.toBlob((blob) => {
+            if (blob) {
+              resolve({ blob, width: tw, height: th });
+            } else {
+              c.toBlob((fallbackBlob) => resolve({ blob: fallbackBlob, width: tw, height: th }), 'image/jpeg', quality);
+            }
+          }, 'image/webp', quality);
+        });
+      }
+
+      function formatShutter(val) {
+        if (!val || typeof val !== 'number' || val <= 0) return '';
+        if (val >= 1) return `${Number(val.toFixed(1))}s`;
+        return `1/${Math.max(1, Math.round(1 / val))}s`;
+      }
+
+      function srgbToLinear(c) {
+        const v = c / 255;
+        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      }
+
+      function estimateMcCamyCCT(r, g, b) {
+        const rL = srgbToLinear(r);
+        const gL = srgbToLinear(g);
+        const bL = srgbToLinear(b);
+        const X = 0.4124564 * rL + 0.3575761 * gL + 0.1804375 * bL;
+        const Y = 0.2126729 * rL + 0.7151522 * gL + 0.0721750 * bL;
+        const Z = 0.0193339 * rL + 0.1191920 * gL + 0.9503041 * bL;
+        const sum = X + Y + Z;
+        if (sum <= 1e-6) return 5500;
+        const x = X / sum;
+        const y = Y / sum;
+        if (Math.abs(0.1858 - y) < 1e-5) return 5500;
+        const n = (x - 0.3320) / (0.1858 - y);
+        const cct = 437 * Math.pow(n, 3) + 3601 * Math.pow(n, 2) + 6861 * n + 5517;
+        return Math.round(Math.max(2000, Math.min(12000, cct)));
+      }
+
+      function classifyTone(cct) {
+        if (cct < 3800) return 'Ấm nóng (Tungsten / Nắng chiều)';
+        if (cct < 4800) return 'Ấm tự nhiên (Golden-Neutral)';
+        if (cct < 6000) return 'Trung tính (Daylight)';
+        return 'Mát lạnh (Shade / Cool)';
+      }
+
+      function analyzeConvergentLighting(canvas) {
+        const N = 96;
+        const off = document.createElement('canvas');
+        off.width = N;
+        off.height = N;
+        const octx = off.getContext('2d', { willReadFrequently: true });
+        octx.drawImage(canvas, 0, 0, N, N);
+        const { data } = octx.getImageData(0, 0, N, N);
+
+        const lum = new Float32Array(N * N);
+        let sumY = 0, sumY2 = 0, highCount = 0, shadowCount = 0;
+        let hiWeightSum = 0, hiX = 0, hiY = 0;
+        let shWeightSum = 0, shX = 0, shY = 0;
+        let centerY = 0, centerN = 0, edgeY = 0, edgeN = 0;
+        let edgeWarmR = 0, edgeWarmB = 0;
+        let wR = 0, wG = 0, wB = 0, wTotal = 0;
+        const bins = new Map();
+
+        for (let py = 0; py < N; py++) {
+          for (let px = 0; px < N; px++) {
+            const i = py * N + px;
+            const idx = i * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const y = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            lum[i] = y;
+
+            sumY += y;
+            sumY2 += y * y;
+            if (y > 0.85) highCount++;
+            if (y < 0.15) shadowCount++;
+
+            if (y > 0.62) {
+              const w = Math.pow(y - 0.62, 1.5);
+              hiWeightSum += w;
+              hiX += (px / (N - 1)) * w;
+              hiY += (py / (N - 1)) * w;
+            }
+            if (y < 0.36) {
+              const w = Math.pow(0.36 - y, 1.5);
+              shWeightSum += w;
+              shX += (px / (N - 1)) * w;
+              shY += (py / (N - 1)) * w;
+            }
+
+            const inCore = px >= N * 0.28 && px <= N * 0.72 && py >= N * 0.22 && py <= N * 0.78;
+            if (inCore) {
+              centerY += y;
+              centerN++;
+            } else {
+              edgeY += y;
+              edgeN++;
+              if (y > 0.72) {
+                edgeWarmR += r;
+                edgeWarmB += b;
+              }
+            }
+
+            if (y > 0.25 && y < 0.92) {
+              wR += r; wG += g; wB += b; wTotal++;
+            }
+
+            const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
+            const cur = bins.get(key) || { count: 0, r: 0, g: 0, b: 0 };
+            cur.count++; cur.r += r; cur.g += g; cur.b += b;
+            bins.set(key, cur);
+          }
+        }
+
+        const cxHi = hiWeightSum > 0 ? hiX / hiWeightSum : 0.5;
+        const cyHi = hiWeightSum > 0 ? hiY / hiWeightSum : 0.5;
+        const cxSh = shWeightSum > 0 ? shX / shWeightSum : 0.5;
+        const cySh = shWeightSum > 0 ? shY / shWeightSum : 0.5;
+
+        const vecX = cxHi - cxSh;
+        const vecY = cyHi - cySh;
+
+        const totalPx = N * N;
+        const meanY = sumY / totalPx;
+        const rmsContrast = Math.sqrt(Math.max(0, sumY2 / totalPx - meanY * meanY));
+        const highPct = Math.round((highCount / totalPx) * 100);
+        const shadowPct = Math.round((shadowCount / totalPx) * 100);
+
+        const coreMean = centerY / Math.max(1, centerN);
+        const edgeMean = edgeY / Math.max(1, edgeN);
+        const rimRatio = edgeMean - coreMean;
+
+        const avgR = wTotal > 0 ? wR / wTotal : 220;
+        const avgG = wTotal > 0 ? wG / wTotal : 220;
+        const avgB = wTotal > 0 ? wB / wTotal : 220;
+        const cct = estimateMcCamyCCT(avgR, avgG, avgB);
+
+        const isWarmEdge = edgeWarmR > edgeWarmB * 1.12;
+        const hasSunBacklight = (rimRatio > 0.13 && edgeMean > 0.58 && (cct < 5100 || isWarmEdge || highPct > 22));
+        const hasRim = rimRatio > 0.09 || hasSunBacklight;
+        const hasReflector = rmsContrast < 0.23 && shadowPct < 20 && Math.abs(vecX) > 0.08;
+
+        let lightingDirection = 'Thẳng Trục Máy / Ánh Sáng Đều (Front Fill)';
+        let vectorSummary = 'Ánh sáng phân bố đều trên bề mặt chủ thể.';
+
+        if (hasSunBacklight && Math.abs(vecX) < 0.14) {
+          lightingDirection = 'Ngược Nắng Mặt Trời (Sun Backlight 150°–180°)';
+          vectorSummary = `Nguồn sáng mạnh hội tụ từ phía sau biên khung hình.`;
+        } else if (vecX <= -0.18) {
+          lightingDirection = 'Đánh Ngang Trái 75°–90° (Split Left)';
+          vectorSummary = `Tâm sáng hội tụ mạnh ở rìa trái.`;
+        } else if (vecX <= -0.065) {
+          lightingDirection = 'Chếch Trái 30°–45° (Rembrandt/Loop Trái)';
+          vectorSummary = `Ánh sáng hội tụ từ góc trên-trái.`;
+        } else if (vecX >= 0.18) {
+          lightingDirection = 'Đánh Ngang Phải 75°–90° (Split Right)';
+          vectorSummary = `Tâm sáng hội tụ mạnh ở rìa phải.`;
+        } else if (vecX >= 0.065) {
+          lightingDirection = 'Chếch Phải 30°–45° (Rembrandt/Loop Phải)';
+          vectorSummary = `Ánh sáng hội tụ từ góc trên-phải.`;
+        } else if (vecY <= -0.11) {
+          lightingDirection = 'Từ Trên Xuống (Butterfly / Paramount)';
+          vectorSummary = `Ánh sáng hội tụ từ phía đỉnh khung hình.`;
+        }
+
+        let lightingQuality = 'Mềm, chuyển vùng tối êm (Soft Diffused)';
+        if (meanY > 0.68 && shadowPct < 10) lightingQuality = 'Sáng cao (High-Key)';
+        else if (meanY < 0.34 && shadowPct > 35) lightingQuality = 'Tối sâu (Low-Key)';
+        else if (rmsContrast > 0.25) lightingQuality = 'Gắt, bóng đổ sắc cạnh (Hard / Dramatic)';
+
+        const secondaryParts = [];
+        if (hasSunBacklight) secondaryParts.push('Có ánh sáng mặt trời ngược nắng (Sun Rim/Flare)');
+        if (hasRim && !hasSunBacklight) secondaryParts.push('Có đèn ven tách tóc/vai (Rim Light)');
+        if (hasReflector) secondaryParts.push('Có hắt sáng/fill nâng chi tiết vùng che khuất');
+        const secondarySummary = secondaryParts.length ? secondaryParts.join(' · ') : 'Chủ yếu dùng 1 nguồn sáng chính.';
+
+        const sortedBins = Array.from(bins.values()).sort((a, b) => b.count - a.count);
+        const palette = [];
+        for (const item of sortedBins) {
+          const r = Math.round(item.r / item.count);
+          const g = Math.round(item.g / item.count);
+          const b = Math.round(item.b / item.count);
+          const hex = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+          if (!palette.includes(hex)) palette.push(hex);
+          if (palette.length >= 5) break;
+        }
+        while (palette.length < 5) palette.push('#E5E5E5');
+
+        return {
+          lightingDirection,
+          lightingQuality,
+          vectorSummary,
+          secondarySummary,
+          hasReflector,
+          hasRim,
+          hasSunBacklight,
+          cct,
+          toneLabel: classifyTone(cct),
+          contrastRms: Number(rmsContrast.toFixed(2)),
+          highPct,
+          shadowPct,
+          palette
+        };
+      }
+
+      async function decodeImageFile(file) {
+        let width, height, source;
+        if (typeof window.createImageBitmap === 'function') {
+          try {
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            width = bitmap.width;
+            height = bitmap.height;
+            source = bitmap;
+          } catch (_) {
+            if (/\.heic$|\.heif$/i.test(file.name) || /heic|heif/i.test(file.type)) throw new Error('HEIC_UNSUPPORTED');
+          }
+        }
+        if (!source) {
+          source = await new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('IMAGE_DECODE_FAILED')); };
+            img.src = url;
+          });
+          width = source.naturalWidth || source.width;
+          height = source.naturalHeight || source.height;
+        }
+
+        const baseCanvas = document.createElement('canvas');
+        baseCanvas.width = width;
+        baseCanvas.height = height;
+        baseCanvas.getContext('2d').drawImage(source, 0, 0, width, height);
+        if (source && typeof source.close === 'function') source.close();
+
+        const [thumbOut, previewOut] = await Promise.all([
+          canvasToWebPBlob(baseCanvas, 320, 0.65),
+          canvasToWebPBlob(baseCanvas, 720, 0.72)
+        ]);
+
+        const analysis = analyzeConvergentLighting(baseCanvas);
+        return {
+          thumbBlob: thumbOut.blob,
+          previewBlob: previewOut.blob,
+          width: previewOut.width,
+          height: previewOut.height,
+          analysis,
+          baseCanvas
+        };
+      }
+
+      async function parseExifSafe(file) {
+        if (!window.exifr || typeof window.exifr.parse !== 'function') {
+          return { available: false, reason: 'library_unavailable', data: {} };
+        }
+        try {
+          const tags = await window.exifr.parse(file, [
+            'FocalLength', 'FocalLengthIn35mmFormat', 'FNumber', 'ExposureTime', 'ISO', 'ISOSpeedRatings'
+          ]);
+          if (!tags || Object.keys(tags).length === 0) {
+            return { available: false, reason: 'no_exif', data: {} };
+          }
+          return {
+            available: true,
+            data: {
+              focalLength: tags.FocalLengthIn35mmFormat || tags.FocalLength || '',
+              aperture: tags.FNumber ? Number(Number(tags.FNumber).toFixed(1)) : '',
+              shutter: formatShutter(tags.ExposureTime),
+              iso: tags.ISO || tags.ISOSpeedRatings || ''
+            }
+          };
+        } catch (_) {
+          return { available: false, reason: 'parse_error', data: {} };
+        }
+      }
+
+      // =========================================================
+      // 5. LIGHTING DIAGRAM SVG
+      // =========================================================
+      function renderLightingDiagramSvg({ keyDir = '', hasReflector = false, hasRim = false, hasSunBacklight = false, focalLabel = 'CAM' }) {
+        let keyX = 44, keyY = 114, keyLabel = 'KEY 45°';
+        let shadowArc = 'M 120 56 A 12 12 0 0 1 120 80';
+
+        if (keyDir.includes('Split Left') || (keyDir.includes('75°–90°') && keyDir.includes('Trái'))) {
+          keyX = 24; keyY = 68; keyLabel = 'KEY 90°L';
+          shadowArc = 'M 120 56 A 12 12 0 0 1 120 80';
+        } else if (keyDir.includes('Split Right') || (keyDir.includes('75°–90°') && keyDir.includes('Phải'))) {
+          keyX = 216; keyY = 68; keyLabel = 'KEY 90°R';
+          shadowArc = 'M 120 56 A 12 12 0 0 0 120 80';
+        } else if (keyDir.includes('Phải')) {
+          keyX = 196; keyY = 114; keyLabel = 'KEY 45°R';
+          shadowArc = 'M 120 56 A 12 12 0 0 0 120 80';
+        } else if (keyDir.includes('Trên') || keyDir.includes('Butterfly')) {
+          keyX = 120; keyY = 108; keyLabel = 'TOP KEY';
+          shadowArc = 'M 108 68 A 12 12 0 0 0 132 68';
+        } else if (keyDir.includes('Ngược Nắng') || keyDir.includes('Backlight')) {
+          keyX = 120; keyY = 22; keyLabel = 'SUN BACK';
+          shadowArc = 'M 108 68 A 12 12 0 0 0 132 68';
+        } else if (keyDir.includes('Thẳng') || keyDir.includes('Front')) {
+          keyX = 120; keyY = 122; keyLabel = 'FRONT';
+          shadowArc = '';
+        }
+
+        const refX = keyX < 120 ? 198 : 42;
+        const refY = 102;
+
+        return `
+          <svg viewBox="0 0 240 164" class="w-full h-full max-h-48" role="img" aria-label="Sơ đồ bố trí ánh sáng">
+            <line x1="120" y1="10" x2="120" y2="152" stroke="#E5E5E5" stroke-dasharray="3 3" />
+            <line x1="16" y1="68" x2="224" y2="68" stroke="#E5E5E5" stroke-dasharray="3 3" />
+            <line x1="${keyX}" y1="${keyY}" x2="120" y2="68" stroke="#D97706" stroke-width="1.6" stroke-dasharray="4 2" />
+
+            ${hasSunBacklight && !keyDir.includes('Ngược Nắng') ? `
+              <line x1="156" y1="20" x2="120" y2="68" stroke="#EA580C" stroke-width="1.5" stroke-dasharray="3 2" />
+              <circle cx="156" cy="20" r="7" fill="#FFEDD5" stroke="#EA580C" stroke-width="1.4" />
+              <text x="184" y="23" font-size="7.5" font-weight="600" fill="#C2410C" font-family="monospace">SUN</text>
+            ` : ''}
+
+            ${hasRim ? `
+              <line x1="74" y1="22" x2="120" y2="68" stroke="#2563EB" stroke-width="1.3" stroke-dasharray="3 2" />
+              <circle cx="74" cy="22" r="6" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4" />
+              <text x="50" y="24" text-anchor="end" font-size="7.5" font-weight="600" fill="#1D4ED8" font-family="monospace">RIM</text>
+            ` : ''}
+
+            ${hasReflector ? `
+              <line x1="${refX}" y1="${refY}" x2="120" y2="68" stroke="#737373" stroke-width="1.1" stroke-dasharray="2 3" />
+              <rect x="${refX - 12}" y="${refY - 3}" width="24" height="6" rx="1" fill="#FFFFFF" stroke="#404040" stroke-width="1.4" />
+              <text x="${refX}" y="${refY + 15}" text-anchor="middle" font-size="7.5" fill="#404040" font-family="monospace">HẮT SÁNG</text>
+            ` : ''}
+
+            <circle cx="120" cy="68" r="12" fill="#F5F5F5" stroke="#111111" stroke-width="1.5" />
+            ${shadowArc ? `<path d="${shadowArc}" fill="#262626" opacity="0.85" />` : ''}
+            <circle cx="120" cy="76" r="2.5" fill="#111111" />
+            <text x="120" y="50" text-anchor="middle" font-size="8" font-weight="600" fill="#111111" font-family="sans-serif">MẪU</text>
+
+            <circle cx="${keyX}" cy="${keyY}" r="8.5" fill="#FEF3C7" stroke="#D97706" stroke-width="1.6" />
+            <circle cx="${keyX}" cy="${keyY}" r="3" fill="#D97706" />
+            <text x="${keyX}" y="${keyY + 18}" text-anchor="middle" font-size="7.5" font-weight="600" fill="#B45309" font-family="monospace">${escapeHtml(keyLabel)}</text>
+
+            <rect x="108" y="138" width="24" height="14" rx="2" fill="#FFFFFF" stroke="#111111" stroke-width="1.5" />
+            <circle cx="120" cy="145" r="3" fill="#111111" />
+            <text x="148" y="148" font-size="7.5" fill="#525252" font-family="monospace">${escapeHtml(focalLabel)}</text>
+          </svg>
+        `;
+      }
+
+      // =========================================================
+      // 6. DEMO SAMPLES GENERATOR
+      // =========================================================
+      async function drawDemoWebPBlobs(type) {
+        const c = document.createElement('canvas');
+        c.width = 600;
+        c.height = 750;
+        const ctx = c.getContext('2d');
+
+        if (type === 'window') {
+          const grad = ctx.createLinearGradient(0, 100, 600, 650);
+          grad.addColorStop(0, '#F7EFE5'); grad.addColorStop(0.55, '#D8C3B0'); grad.addColorStop(1, '#584B42');
+          ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 750);
+          ctx.fillStyle = 'rgba(255, 250, 240, 0.5)'; ctx.fillRect(28, 60, 180, 560);
+          ctx.fillStyle = '#2B2420'; ctx.beginPath(); ctx.arc(325, 255, 58, 0, Math.PI * 2); ctx.fill();
+        } else if (type === 'golden') {
+          const grad = ctx.createRadialGradient(470, 170, 30, 380, 280, 540);
+          grad.addColorStop(0, '#FFF1D0'); grad.addColorStop(0.35, '#E9B384'); grad.addColorStop(1, '#4A3933');
+          ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 750);
+          ctx.fillStyle = '#241B18'; ctx.beginPath(); ctx.arc(275, 230, 46, 0, Math.PI * 2); ctx.fill();
+        } else {
+          const grad = ctx.createLinearGradient(0, 0, 0, 750);
+          grad.addColorStop(0, '#FAFAFA'); grad.addColorStop(1, '#E2E4E8');
+          ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 750);
+          ctx.fillStyle = '#18181B'; ctx.beginPath(); ctx.arc(300, 240, 50, 0, Math.PI * 2); ctx.fill();
+        }
+
+        const [thumbOut, previewOut] = await Promise.all([
+          canvasToWebPBlob(c, 320, 0.65),
+          canvasToWebPBlob(c, 720, 0.72)
+        ]);
+        return { thumbBlob: thumbOut.blob, previewBlob: previewOut.blob };
+      }
+
+      async function loadDemoSamples() {
+        const [b1, b2, b3] = await Promise.all([
+          drawDemoWebPBlobs('window'),
+          drawDemoWebPBlobs('golden'),
+          drawDemoWebPBlobs('studio')
+        ]);
+
+        const demos = [
+          {
+            id: generateId(),
+            title: 'Chân dung cửa sổ góc 3/4',
+            createdAt: Date.now() - 3600000 * 5,
+            thumbBlob: b1.thumbBlob,
+            previewBlob: b1.previewBlob,
+            width: 600,
+            height: 750,
+            exif: { focalLength: 85, aperture: 1.8, shutter: '1/320s', iso: 200 },
+            analysis: {
+              lightingDirection: 'Chếch Trái 30°–45° (Rembrandt/Loop Trái)',
+              lightingQuality: 'Mềm, chuyển vùng tối êm (Soft Diffused)',
+              vectorSummary: 'Ánh sáng cửa sổ hội tụ từ góc trên-trái.',
+              secondarySummary: 'Có hắt sáng/fill nâng chi tiết.',
+              hasReflector: true, hasRim: false, hasSunBacklight: false,
+              cct: 4520, toneLabel: 'Ấm tự nhiên', contrastRms: 0.21, highPct: 14, shadowPct: 16,
+              palette: ['#F5EFE6', '#D8C3B0', '#8C7464', '#584B42', '#2B2420']
+            },
+            pose: {
+              poseGroup: 'Ngồi',
+              context: 'Trong nhà / Cửa sổ',
+              framing: 'Bán thân',
+              angle: 'Ngang tầm mắt',
+              headAngle: 'Góc 3/4',
+              gaze: 'Nhìn lệch khung hình',
+              smile: 'Cười mỉm',
+              mood: 'Trong trẻo',
+              handPose: 'Chạm mặt/tóc',
+              cues: 'Nghiêng mặt 3/4 về phía cửa sổ trái, ánh mắt nhìn lệch nhẹ.'
+            },
+            setupNote: 'Cửa sổ lớn bên trái làm Key Light; tấm hắt sáng trắng bên phải.'
+          },
+          {
+            id: generateId(),
+            title: 'Ngược nắng Giờ Vàng — Ngoái qua vai',
+            createdAt: Date.now() - 3600000 * 3,
+            thumbBlob: b2.thumbBlob,
+            previewBlob: b2.previewBlob,
+            width: 600,
+            height: 750,
+            exif: { focalLength: 50, aperture: 2.0, shutter: '1/1000s', iso: 160 },
+            analysis: {
+              lightingDirection: 'Ngược Nắng Mặt Trời (Sun Backlight 150°–180°)',
+              lightingQuality: 'Mềm, chuyển vùng tối êm (Soft Diffused)',
+              vectorSummary: 'Nắng chiều hội tụ từ sau lưng.',
+              secondarySummary: 'Có ánh sáng mặt trời ngược nắng.',
+              hasReflector: true, hasRim: true, hasSunBacklight: true,
+              cct: 3680, toneLabel: 'Ấm nóng', contrastRms: 0.24, highPct: 19, shadowPct: 18,
+              palette: ['#FFF1D0', '#E9B384', '#B57B56', '#4A3933', '#241B18']
+            },
+            pose: {
+              poseGroup: 'Chuyển động',
+              context: 'Giờ vàng (Golden Hour)',
+              framing: 'Nửa người',
+              angle: 'Hất từ dưới lên',
+              headAngle: 'Ngoái qua vai',
+              gaze: 'Nheo mắt nhẹ',
+              smile: 'Hơi hé môi',
+              mood: 'Đời thường tự nhiên',
+              handPose: 'Tựa điểm tựa',
+              cues: 'Thân xoay chéo, đầu ngoái qua vai nhìn về phía máy.'
+            },
+            setupNote: 'Mặt trời chếch sau lưng 160° tách tóc.'
+          },
+          {
+            id: generateId(),
+            title: 'Editorial Studio — Góc nghiêng 90°',
+            createdAt: Date.now() - 3600000,
+            thumbBlob: b3.thumbBlob,
+            previewBlob: b3.previewBlob,
+            width: 600,
+            height: 750,
+            exif: { focalLength: 50, aperture: 4.0, shutter: '1/200s', iso: 100 },
+            analysis: {
+              lightingDirection: 'Đánh Ngang Phải 75°–90° (Split Right)',
+              lightingQuality: 'Sáng cao (High-Key)',
+              vectorSummary: 'Tâm sáng hội tụ mạnh ở rìa phải.',
+              secondarySummary: 'Có đèn ven tách tóc/vai.',
+              hasReflector: false, hasRim: true, hasSunBacklight: false,
+              cct: 5650, toneLabel: 'Trung tính', contrastRms: 0.16, highPct: 58, shadowPct: 6,
+              palette: ['#FAFAFA', '#E2E4E8', '#9CA3AF', '#52525B', '#18181B']
+            },
+            pose: {
+              poseGroup: 'Đứng',
+              context: 'Studio / Phông trơn',
+              framing: 'Toàn thân',
+              angle: 'Ngang tầm mắt',
+              headAngle: 'Góc nghiêng 90°',
+              gaze: 'Nhìn thẳng ống kính',
+              smile: 'Môi khép lạnh lùng',
+              mood: 'Sắc sảo/Editorial',
+              handPose: 'Dồn trọng tâm 1 chân',
+              cues: 'Dồn trọng tâm vào chân sau, một tay đút túi.'
+            },
+            setupNote: 'Softbox chữ nhật đặt ngang bên phải 80°.'
+          }
+        ];
+
+        for (const d of demos) {
+          await idb.put(STORE_SAMPLES, d);
+        }
+        state.samples = [...demos, ...state.samples];
+        renderLibrary();
+        await updateStorageMetrics();
+        showToast('Đã tạo 3 mẫu Demo trong IndexedDB.', 'success');
+      }
+
+      // =========================================================
+      // 7. RENDERING & UI CONTROLLER
+      // =========================================================
+      function switchTab(tabName) {
+        state.activeTab = tabName;
+        saveSmallPref(META_KEY_TAB, tabName);
+
+        document.querySelectorAll('.tab-view').forEach((el) => el.classList.add('hidden'));
+        const activeView = document.getElementById(`view-${tabName}`);
+        if (activeView) activeView.classList.remove('hidden');
+
+        document.querySelectorAll('.nav-tab').forEach((btn) => {
+          const isMatch = btn.dataset.tab === tabName;
+          btn.className = isMatch
+            ? 'nav-tab px-3 py-1.5 text-xs tracking-wide uppercase font-semibold bg-neutral-900 text-white rounded-sm transition-colors cursor-pointer'
+            : 'nav-tab px-3 py-1.5 text-xs tracking-wide uppercase font-medium text-neutral-500 hover:text-neutral-900 rounded-sm transition-colors cursor-pointer';
+        });
+
+        document.querySelectorAll('.mobile-tab').forEach((btn) => {
+          const isMatch = btn.dataset.tab === tabName;
+          btn.className = isMatch
+            ? 'mobile-tab flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-neutral-900 cursor-pointer'
+            : 'mobile-tab flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-neutral-400 cursor-pointer';
+        });
+
+        if (tabName === 'shotlist') renderShotList();
+        if (tabName === 'settings') {
+          updateStorageMetrics();
+          initSettingsUI();
+        }
+      }
+
+      function updateNavCounters() {
+        const libEl = document.getElementById('navLibCount');
+        const shotEl = document.getElementById('navShotCount');
+        if (libEl) libEl.textContent = state.samples.length;
+        if (shotEl) shotEl.textContent = state.shotList.length;
+      }
+
+      function renderLibrary() {
+        updateNavCounters();
+        const grid = document.getElementById('libraryGrid');
+        const emptyAll = document.getElementById('libraryEmptyState');
+        const emptyFilter = document.getElementById('filterEmptyState');
+
+        if (state.samples.length === 0) {
+          grid.innerHTML = '';
+          emptyAll.classList.remove('hidden');
+          emptyFilter.classList.add('hidden');
+          return;
+        }
+        emptyAll.classList.add('hidden');
+
+        const query = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+        const fFraming = document.getElementById('filterFraming').value;
+        const fFocal = document.getElementById('filterFocal').value;
+        const fContext = document.getElementById('filterContext').value;
+        const fPoseGroup = document.getElementById('filterPoseGroup').value;
+
+        const filtered = state.samples.filter((s) => {
+          const p = s.pose || {};
+          if (fFraming && p.framing !== fFraming) return false;
+          if (fContext && p.context !== fContext) return false;
+          if (fPoseGroup && p.poseGroup !== fPoseGroup) return false;
+          if (fFocal) {
+            const fl = Number(s.exif.focalLength) || 50;
+            if (fFocal === 'wide' && fl >= 35) return false;
+            if (fFocal === 'standard' && (fl < 35 || fl > 60)) return false;
+            if (fFocal === 'portrait' && (fl <= 60 || fl > 135)) return false;
+            if (fFocal === 'tele' && fl <= 135) return false;
+          }
+          if (query) {
+            const hay = `${s.title} ${p.framing} ${p.poseGroup} ${p.context} ${p.mood} ${p.cues} ${s.analysis.lightingDirection}`.toLowerCase();
+            if (!hay.includes(query)) return false;
+          }
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          grid.innerHTML = '';
+          emptyFilter.classList.remove('hidden');
+          return;
+        }
+        emptyFilter.classList.add('hidden');
+
+        grid.innerHTML = filtered.map((s) => {
+          const thumbUrl = getBlobUrl(`thumb_${s.id}`, s.thumbBlob || s.previewBlob);
+          const specs = [
+            s.exif.focalLength ? `${s.exif.focalLength}mm` : '',
+            s.exif.aperture ? `f/${s.exif.aperture}` : ''
+          ].filter(Boolean).join(' · ') || 'WebP';
+
+          return `
+            <article class="vsco-card group border border-neutral-200 bg-white rounded-sm overflow-hidden flex flex-col cursor-pointer">
+              <div data-sample-preview="${escapeHtml(s.id)}" class="relative aspect-[4/5] bg-neutral-100 overflow-hidden">
+                <img src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(s.title)}" loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" />
+                <div class="absolute top-2 left-2 px-1.5 py-0.5 bg-white/90 backdrop-blur-xs text-[10px] font-medium text-neutral-900 rounded-xs border border-neutral-200/80">
+                  ${escapeHtml(s.pose.poseGroup || 'Đứng')} · ${escapeHtml(s.pose.framing || 'Bán thân')}
+                </div>
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-neutral-900/80 text-white font-mono-tech text-[10px] rounded-xs">
+                  ${escapeHtml(specs)}
+                </div>
+              </div>
+              <div class="p-3 flex-1 flex flex-col justify-between gap-2">
+                <div data-sample-preview="${escapeHtml(s.id)}" class="cursor-pointer">
+                  <h3 class="text-xs font-medium text-neutral-900 line-clamp-1">${escapeHtml(s.title)}</h3>
+                  <p class="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">${escapeHtml(s.pose.mood || '')} · ${escapeHtml(s.pose.context || '')}</p>
+                </div>
+                <div class="flex items-center justify-between pt-1.5 border-t border-neutral-100">
+                  <div class="flex -space-x-1">
+                    ${(s.analysis.palette || []).slice(0, 3).map((hex) => `<span class="w-2.5 h-2.5 rounded-full border border-white" style="background:${escapeHtml(hex)}"></span>`).join('')}
+                  </div>
+                  <button data-quick-shot="${escapeHtml(s.id)}" type="button" title="Thêm vào Shot List" class="w-6 h-6 rounded-full border border-neutral-300 bg-white hover:bg-neutral-900 hover:text-white text-neutral-700 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0">
+                    +
+                  </button>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+
+        grid.querySelectorAll('[data-sample-preview]').forEach((el) => {
+          el.addEventListener('click', () => openSampleModal(el.dataset.samplePreview));
+        });
+
+        grid.querySelectorAll('[data-quick-shot]').forEach((btn) => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const sampleId = btn.dataset.quickShot;
+            const s = state.samples.find((x) => x.id === sampleId);
+            if (s) {
+              await addSampleToShotList(s);
+              btn.textContent = '✓';
+              btn.classList.add('bg-neutral-900', 'text-white');
+              setTimeout(() => {
+                btn.textContent = '+';
+                btn.classList.remove('bg-neutral-900', 'text-white');
+              }, 1200);
+            }
+          });
+        });
+      }
+
+      function renderSelectOptions(options, currentVal) {
+        return options.map((opt) => `<option value="${escapeHtml(opt)}" ${opt === currentVal ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('');
+      }
+
+      function openSampleModal(sampleId, editMode = false) {
+        state.currentModalSampleId = sampleId;
+        state.modalEditMode = editMode;
+        const s = state.samples.find((item) => item.id === sampleId);
+        if (!s) return;
+
+        const previewUrl = getBlobUrl(`preview_${s.id}`, s.previewBlob || s.thumbBlob);
+        document.getElementById('modalContextBadge').textContent = `${s.pose.context} · ${s.pose.framing} · ${s.pose.poseGroup}`;
+        document.getElementById('modalTitle').textContent = s.title;
+
+        const toggleBtn = document.getElementById('modalToggleEditBtn');
+        toggleBtn.textContent = state.modalEditMode ? 'Hủy' : 'Chỉnh sửa';
+
+        const svgHtml = renderLightingDiagramSvg({
+          keyDir: s.analysis.lightingDirection,
+          hasReflector: s.analysis.hasReflector,
+          hasRim: s.analysis.hasRim,
+          hasSunBacklight: s.analysis.hasSunBacklight,
+          focalLabel: s.exif.focalLength ? `${s.exif.focalLength}mm` : 'CAM'
+        });
+
+        const modalBody = document.getElementById('modalBody');
+
+        if (!state.modalEditMode) {
+          modalBody.innerHTML = `
+            <div class="md:col-span-5 space-y-3">
+              <div class="bg-neutral-50 border border-neutral-200 p-2 rounded-sm">
+                <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(s.title)}" class="w-full max-h-[380px] object-contain mx-auto" />
+              </div>
+              <div class="grid grid-cols-5 h-5 rounded-sm overflow-hidden border border-neutral-200">
+                ${(s.analysis.palette || []).map((hex) => `<div title="${escapeHtml(hex)}" style="background:${escapeHtml(hex)}"></div>`).join('')}
+              </div>
+              <div class="h-32 bg-neutral-50 border border-neutral-200 rounded-sm p-1">
+                ${svgHtml}
+              </div>
+            </div>
+
+            <div class="md:col-span-7 space-y-3 text-xs">
+              <div class="grid grid-cols-2 gap-2 bg-neutral-50 p-3 border border-neutral-200 rounded-sm">
+                <div><span class="text-neutral-500">Cỡ cảnh:</span> <span class="font-medium text-neutral-900">${escapeHtml(s.pose.framing)}</span></div>
+                <div><span class="text-neutral-500">Nhóm dáng:</span> <span class="font-medium text-neutral-900">${escapeHtml(s.pose.poseGroup || 'Đứng')}</span></div>
+                <div><span class="text-neutral-500">Góc máy:</span> <span class="font-medium text-neutral-900">${escapeHtml(s.pose.angle)}</span></div>
+                <div><span class="text-neutral-500">Góc mặt & Đầu:</span> <span class="font-medium text-neutral-900">${escapeHtml(s.pose.headAngle)}</span></div>
+                <div><span class="text-neutral-500">Ánh mắt:</span> <span class="font-medium text-neutral-900">${escapeHtml(s.pose.gaze)}</span></div>
+                <div><span class="text-neutral-500">Thần thái:</span> <span class="font-medium text-neutral-900">${escapeHtml(s.pose.mood)}</span></div>
+              </div>
+
+              <div class="border border-neutral-200 rounded-sm p-3 space-y-1">
+                <div class="font-semibold text-neutral-900">${escapeHtml(s.analysis.lightingDirection)}</div>
+                <p class="text-neutral-700 leading-snug">${escapeHtml(s.analysis.vectorSummary || '')}</p>
+              </div>
+
+              <div class="border border-neutral-200 rounded-sm p-3 space-y-1">
+                <div class="font-semibold text-neutral-900">Ghi chú tạo dáng & Setup:</div>
+                <p class="text-neutral-700 leading-snug"><strong class="text-neutral-900">Dáng:</strong> ${escapeHtml(s.pose.cues || 'Không có')}</p>
+                <p class="text-neutral-700 leading-snug"><strong class="text-neutral-900">Ánh sáng:</strong> ${escapeHtml(s.setupNote || 'Không có')}</p>
+              </div>
+
+              <div class="pt-2 flex items-center justify-between border-t border-neutral-100">
+                <button data-delete-sample="${escapeHtml(s.id)}" type="button" class="text-xs text-red-600 hover:underline cursor-pointer">
+                  Xóa mẫu này
+                </button>
+                <button data-pin-sample="${escapeHtml(s.id)}" type="button" class="px-4 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-sm hover:bg-neutral-800 cursor-pointer">
+                  + Thêm vào Shot List
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          modalBody.innerHTML = `
+            <div class="md:col-span-5 space-y-3">
+              <div class="bg-neutral-50 border border-neutral-200 p-2 rounded-sm">
+                <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(s.title)}" class="w-full max-h-[360px] object-contain mx-auto" />
+              </div>
+            </div>
+
+            <form id="modalEditForm" class="md:col-span-7 space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label class="block text-[10px] uppercase text-neutral-500 mb-0.5">Tên mẫu</label>
+                  <input name="title" type="text" value="${escapeHtml(s.title)}" class="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-sm focus:outline-none focus:border-neutral-900" />
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase text-neutral-500 mb-0.5">Bối cảnh</label>
+                  <select name="context" class="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-sm bg-white">
+                    ${renderSelectOptions(['Trong nhà / Cửa sổ', 'Studio / Phông trơn', 'Ngoài trời nắng gắt', 'Giờ vàng (Golden Hour)', 'Bóng râm / Trời mây', 'Ban đêm / Đèn phố'], s.pose.context)}
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label class="block text-[10px] text-neutral-500 mb-0.5">Cỡ cảnh</label>
+                  <select name="framing" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm bg-white">
+                    ${renderSelectOptions(['Cận mặt', 'Bán thân', 'Nửa người', 'Toàn thân'], s.pose.framing)}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-neutral-500 mb-0.5">Nhóm dáng</label>
+                  <select name="poseGroup" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm bg-white">
+                    ${renderSelectOptions(['Đứng', 'Ngồi', 'Chuyển động', 'Chân dung cận'], s.pose.poseGroup || 'Đứng')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-neutral-500 mb-0.5">Góc máy</label>
+                  <select name="angle" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm bg-white">
+                    ${renderSelectOptions(['Ngang tầm mắt', 'Từ trên xuống', 'Hất từ dưới lên'], s.pose.angle)}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-neutral-500 mb-0.5">Góc mặt & Đầu</label>
+                  <select name="headAngle" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm bg-white">
+                    ${renderSelectOptions(['Chính diện', 'Góc 3/4', 'Góc nghiêng 90°', 'Cúi nhẹ cằm', 'Ngoái qua vai'], s.pose.headAngle)}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-neutral-500 mb-0.5">Ánh mắt</label>
+                  <select name="gaze" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm bg-white">
+                    ${renderSelectOptions(['Nhìn thẳng ống kính', 'Nhìn lệch khung hình', 'Nhìn xuống', 'Nhắm mắt', 'Nheo mắt nhẹ'], s.pose.gaze)}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-neutral-500 mb-0.5">Thần thái</label>
+                  <select name="mood" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm bg-white">
+                    ${renderSelectOptions(['Trong trẻo', 'Sắc sảo/Editorial', 'Đời thường tự nhiên', 'Trầm tư/Moody', 'Tinh nghịch'], s.pose.mood)}
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label class="block text-[10px] uppercase text-neutral-500 mb-0.5">Ghi chú tạo dáng</label>
+                  <textarea name="cues" rows="2" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm">${escapeHtml(s.pose.cues || '')}</textarea>
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase text-neutral-500 mb-0.5">Ghi chú setup ánh sáng</label>
+                  <textarea name="setupNote" rows="2" class="w-full px-2 py-1 text-xs border border-neutral-200 rounded-sm">${escapeHtml(s.setupNote || '')}</textarea>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
+                <button type="button" id="cancelEditModeBtn" class="px-3 py-1.5 border border-neutral-300 text-xs rounded-sm cursor-pointer">Hủy</button>
+                <button type="submit" class="px-4 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-sm hover:bg-neutral-800 cursor-pointer">
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          `;
+
+          modalBody.querySelector('#cancelEditModeBtn').addEventListener('click', () => {
+            openSampleModal(sampleId, false);
+          });
+
+          modalBody.querySelector('#modalEditForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            s.title = String(fd.get('title') || s.title).trim();
+            s.pose.context = String(fd.get('context'));
+            s.pose.framing = String(fd.get('framing'));
+            s.pose.poseGroup = String(fd.get('poseGroup'));
+            s.pose.angle = String(fd.get('angle'));
+            s.pose.headAngle = String(fd.get('headAngle'));
+            s.pose.gaze = String(fd.get('gaze'));
+            s.pose.mood = String(fd.get('mood'));
+            s.pose.cues = String(fd.get('cues') || '').trim();
+            s.setupNote = String(fd.get('setupNote') || '').trim();
+
+            await idb.put(STORE_SAMPLES, s);
+            renderLibrary();
+            openSampleModal(sampleId, false);
+            showToast('Đã cập nhật thay đổi vào IndexedDB.', 'success');
+          });
+        }
+
+        const delBtn = modalBody.querySelector('[data-delete-sample]');
+        if (delBtn) {
+          delBtn.addEventListener('click', async () => {
+            await idb.delete(STORE_SAMPLES, s.id);
+            revokeBlobUrlsForPrefix(`thumb_${s.id}`);
+            revokeBlobUrlsForPrefix(`preview_${s.id}`);
+            state.samples = state.samples.filter((x) => x.id !== s.id);
+            document.getElementById('detailModal').classList.add('hidden');
+            renderLibrary();
+            await updateStorageMetrics();
+            showToast('Đã xóa mẫu khỏi IndexedDB.', 'info');
+          });
+        }
+
+        const pinBtn = modalBody.querySelector('[data-pin-sample]');
+        if (pinBtn) {
+          pinBtn.addEventListener('click', async () => {
+            await addSampleToShotList(s);
+          });
+        }
+
+        document.getElementById('detailModal').classList.remove('hidden');
+      }
+
+      async function addSampleToShotList(s) {
+        const entry = {
+          id: generateId(),
+          done: false,
+          title: s.title,
+          meta: `${s.pose.framing} · ${s.pose.poseGroup || 'Đứng'} · ${s.analysis.lightingDirection.split('(')[0].trim()}`,
+          poseText: s.pose.cues || `${s.pose.headAngle}, ${s.pose.gaze}.`,
+          setupText: s.setupNote || s.analysis.vectorSummary || s.analysis.lightingQuality,
+          thumbBlob: s.thumbBlob || null
+        };
+        await idb.put(STORE_SHOTLIST, entry);
+        state.shotList.unshift(entry);
+        updateNavCounters();
+        showToast('Đã ghim mẫu vào Shot List.', 'success');
+      }
+
+      function renderShotList() {
+        updateNavCounters();
+        const emptyEl = document.getElementById('shotListEmpty');
+        const listEl = document.getElementById('shotListContainer');
+
+        if (state.shotList.length === 0) {
+          emptyEl.classList.remove('hidden');
+          listEl.innerHTML = '';
+          return;
+        }
+        emptyEl.classList.add('hidden');
+
+        listEl.innerHTML = state.shotList.map((item) => {
+          const thumbUrl = item.thumbBlob ? getBlobUrl(`shot_${item.id}`, item.thumbBlob) : '';
+          return `
+            <div class="border border-neutral-200 rounded-sm p-4 bg-white flex items-start gap-3.5 ${item.done ? 'opacity-55' : ''}">
+              <input data-toggle-shot="${escapeHtml(item.id)}" type="checkbox" ${item.done ? 'checked' : ''} class="mt-1 w-4 h-4 accent-neutral-900 cursor-pointer shrink-0" />
+              ${thumbUrl ? `<img src="${escapeHtml(thumbUrl)}" alt="" class="w-14 h-16 object-cover rounded-xs bg-neutral-100 shrink-0" />` : ''}
+              <div class="flex-1 min-w-0 space-y-1">
+                <div class="flex items-start justify-between gap-2">
+                  <h3 class="text-xs sm:text-sm font-medium ${item.done ? 'line-through text-neutral-400' : 'text-neutral-900'}">${escapeHtml(item.title)}</h3>
+                  <button data-remove-shot="${escapeHtml(item.id)}" type="button" class="text-[11px] text-neutral-400 hover:text-red-600 cursor-pointer shrink-0">Xóa</button>
+                </div>
+                <p class="font-mono-tech text-[11px] text-neutral-500">${escapeHtml(item.meta)}</p>
+                <p class="text-xs text-neutral-700 leading-relaxed"><span class="font-medium">Dáng:</span> ${escapeHtml(item.poseText)}</p>
+                <p class="text-xs text-neutral-500 leading-relaxed"><span class="font-medium text-neutral-700">Setup:</span> ${escapeHtml(item.setupText)}</p>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        listEl.querySelectorAll('[data-toggle-shot]').forEach((cb) => {
+          cb.addEventListener('change', async () => {
+            const target = state.shotList.find((x) => x.id === cb.dataset.toggleShot);
+            if (target) {
+              target.done = cb.checked;
+              await idb.put(STORE_SHOTLIST, target);
+              renderShotList();
+            }
+          });
+        });
+
+        listEl.querySelectorAll('[data-remove-shot]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            await idb.delete(STORE_SHOTLIST, btn.dataset.removeShot);
+            revokeBlobUrlsForPrefix(`shot_${btn.dataset.removeShot}`);
+            state.shotList = state.shotList.filter((x) => x.id !== btn.dataset.removeShot);
+            renderShotList();
+          });
+        });
+      }
+
+      // =========================================================
+      // 8. UPLOAD & ANALYZER & GEMINI VISION API INTEGRATION (CẬP NHẬT YÊU CẦU 1, 2, 3)
+      // =========================================================
+      function getStoredGeminiKey() {
+        try {
+          const raw = localStorage.getItem(LOCALSTORAGE_GEMINI_KEY);
+          if (!raw) return '';
+          if (raw.startsWith('"') && raw.endsWith('"')) {
+            return JSON.parse(raw);
+          }
+          return raw.trim();
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function initSettingsUI() {
+        const keyInput = document.getElementById('geminiKeyInput');
+        const badge = document.getElementById('geminiStatusBadge');
+        if (!keyInput || !badge) return;
+
+        const currentKey = getStoredGeminiKey();
+        keyInput.value = currentKey;
+        if (currentKey) {
+          badge.textContent = 'Đã kết nối API';
+          badge.className = 'text-[11px] font-mono-tech px-2.5 py-1 border border-emerald-300 bg-emerald-50 text-emerald-800 rounded-sm font-semibold';
+        } else {
+          badge.textContent = 'Chưa cấu hình';
+          badge.className = 'text-[11px] font-mono-tech px-2.5 py-1 border border-neutral-200 rounded-sm bg-neutral-50 text-neutral-500';
+        }
+      }
+
+      /**
+       * HÀM HỖ TRỢ GỌI GEMINI API VỚI CƠ CHẾ FALLBACK THÔNG MINH (YÊU CẦU 2 & 3)
+       * Danh sách model ưu tiên: ['gemini-3.8-flash', 'gemini-3.5-flash-lite']
+       */
+      async function callGeminiWithFallback(apiKey, requestBody) {
+        const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+        let lastError = null;
+
+        for (const modelName of models) {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+              const errJson = await response.json().catch(() => ({}));
+              const status = response.status;
+              const errMsg = errJson.error?.message || `Lỗi HTTP ${status}`;
+              // Nếu gặp lỗi 404, 400 hoặc 429, throw để trigger fallback sang model tiếp theo
+              if (status === 404 || status === 400 || status === 429 || errMsg.includes('not found') || errMsg.includes('no longer available')) {
+                throw new Error(`Model ${modelName} không khả dụng (${status}): ${errMsg}`);
+              } else {
+                throw new Error(errMsg);
+              }
+            }
+
+            const data = await response.json();
+            return { data, usedModel: modelName };
+          } catch (err) {
+            lastError = err;
+            console.warn(`[FPOSE Fallback] Model ${modelName} thất bại, thử model tiếp theo... Lỗi:`, err.message);
+          }
+        }
+        throw lastError || new Error('Tất cả các model Gemini dự phòng đều không thành công.');
+      }
+
+      function bindSettingsApiKeyEvents() {
+        const keyInput = document.getElementById('geminiKeyInput');
+        const saveBtn = document.getElementById('saveApiKeyBtn');
+        const testBtn = document.getElementById('testApiKeyBtn');
+        const clearBtn = document.getElementById('clearApiKeyBtn');
+        const toggleVisBtn = document.getElementById('toggleApiKeyVisibility');
+        const badge = document.getElementById('geminiStatusBadge');
+
+        if (!keyInput) return;
+
+        toggleVisBtn.addEventListener('click', () => {
+          keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+        });
+
+        saveBtn.addEventListener('click', () => {
+          const val = keyInput.value.trim();
+          if (!val) {
+            showToast('Vui lòng nhập Gemini API Key hợp lệ.', 'warning');
+            return;
+          }
+          localStorage.setItem(LOCALSTORAGE_GEMINI_KEY, val);
+          initSettingsUI();
+          showToast('Đã lưu Gemini API Key cục bộ vào localStorage.', 'success');
+        });
+
+        clearBtn.addEventListener('click', () => {
+          localStorage.removeItem(LOCALSTORAGE_GEMINI_KEY);
+          keyInput.value = '';
+          initSettingsUI();
+          showToast('Đã xóa Gemini API Key.', 'info');
+        });
+
+        // Nút Kiểm tra kết nối trong Setting (Cập nhật endpoint gemini-3.8-flash và tích hợp fallback)
+        testBtn.addEventListener('click', async () => {
+          const val = keyInput.value.trim();
+          if (!val) {
+            showToast('Vui lòng nhập hoặc lưu API Key trước khi kiểm tra.', 'warning');
+            return;
+          }
+
+          testBtn.textContent = 'Đang kiểm tra...';
+          testBtn.disabled = true;
+
+          try {
+            const testPayload = {
+              contents: [{ parts: [{ text: "Ping test connection. Reply OK." }] }]
+            };
+
+            const result = await callGeminiWithFallback(val, testPayload);
+            if (result && result.data && result.data.candidates) {
+              showToast(`Kết nối Gemini API thành công (Model: ${result.usedModel})! Key hợp lệ.`, 'success');
+              localStorage.setItem(LOCALSTORAGE_GEMINI_KEY, val);
+              initSettingsUI();
+            } else {
+              throw new Error('Phản hồi từ API không hợp lệ.');
+            }
+          } catch (err) {
+            showToast(`Lỗi kết nối API: ${err.message}`, 'error');
+          } finally {
+            testBtn.textContent = 'Kiểm tra kết nối';
+            testBtn.disabled = false;
+          }
+        });
+      }
+
+      async function handleUploadedFile(file) {
+        if (!file) return;
+        const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(file.name);
+        if (!isImage) {
+          showToast('Vui lòng chọn tệp hình ảnh hợp lệ.', 'error');
+          return;
+        }
+
+        try {
+          showToast('Đang nén WebP và phân tích hội tụ sáng...', 'info');
+          const [exifResult, decoded] = await Promise.all([
+            parseExifSafe(file),
+            decodeImageFile(file)
+          ]);
+
+          const pa = decoded.analysis;
+          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+
+          if (state.pendingDraft && state.pendingDraft.tempUrl) {
+            URL.revokeObjectURL(state.pendingDraft.tempUrl);
+          }
+          const tempUrl = URL.createObjectURL(decoded.previewBlob);
+
+          state.pendingDraft = {
+            thumbBlob: decoded.thumbBlob,
+            previewBlob: decoded.previewBlob,
+            width: decoded.width,
+            height: decoded.height,
+            analysis: pa,
+            baseCanvas: decoded.baseCanvas,
+            tempUrl
+          };
+
+          document.getElementById('analyzerIdleHint').classList.add('hidden');
+          document.getElementById('analyzerWorkspace').classList.remove('hidden');
+
+          document.getElementById('previewImg').src = tempUrl;
+          document.getElementById('previewMetaDim').textContent = `Preview ${decoded.width}×${decoded.height}px WebP`;
+          document.getElementById('blobSizeBadge').textContent = `Thumb ${formatBytes(decoded.thumbBlob.size)} · Preview ${formatBytes(decoded.previewBlob.size)}`;
+
+          document.getElementById('cctBadge').textContent = `~${pa.cct} K`;
+          document.getElementById('metricContrast').textContent = pa.contrastRms;
+          document.getElementById('metricHighlights').textContent = `${pa.highPct}%`;
+          document.getElementById('metricShadows').textContent = `${pa.shadowPct}%`;
+          document.getElementById('lightingVectorDetail').textContent = pa.vectorSummary;
+          document.getElementById('secondaryLightDetail').textContent = pa.secondarySummary;
+
+          document.getElementById('paletteSwatches').innerHTML = pa.palette
+            .map((hex) => `<div title="${escapeHtml(hex)}" style="background:${escapeHtml(hex)}"></div>`)
+            .join('');
+
+          const exifStatusEl = document.getElementById('exifStatusText');
+          const exifBadgeEl = document.getElementById('exifBadge');
+          if (exifResult.available) {
+            exifStatusEl.textContent = 'Đã trích xuất thông số EXIF tự động.';
+            exifBadgeEl.textContent = 'EXIF OK';
+            exifBadgeEl.className = 'text-[10px] font-mono-tech uppercase px-2 py-1 border border-emerald-300 bg-emerald-50 text-emerald-800 rounded-sm';
+          } else {
+            exifStatusEl.textContent = 'Không có EXIF gốc. Đã phân tích ánh sáng bằng pixel.';
+            exifBadgeEl.textContent = 'NO EXIF';
+            exifBadgeEl.className = 'text-[10px] font-mono-tech uppercase px-2 py-1 border border-amber-300 bg-amber-50 text-amber-800 rounded-sm';
+          }
+
+          const ex = exifResult.data;
+          document.getElementById('inTitle').value = cleanName || 'Mẫu ảnh mới';
+          document.getElementById('inFocal').value = ex.focalLength || '';
+          document.getElementById('inAperture').value = ex.aperture || '';
+          document.getElementById('inShutter').value = ex.shutter || '';
+          document.getElementById('inIso').value = ex.iso || '';
+
+          document.getElementById('inLightDir').value = pa.lightingDirection;
+          document.getElementById('inLightQuality').value = pa.lightingQuality;
+          document.getElementById('inHasReflector').checked = pa.hasReflector;
+          document.getElementById('inHasRim').checked = pa.hasRim;
+          document.getElementById('inHasSunBacklight').checked = pa.hasSunBacklight;
+
+          refreshAnalyzerDiagram();
+          showToast('Phân tích hoàn tất. Nhấn "Lưu vào IndexedDB".', 'success');
+        } catch (_) {
+          showToast('Không thể đọc tệp ảnh này.', 'error');
+        }
+      }
+
+      // HÀM GỌI GEMINI VISION API TÍCH HỢP FALLBACK VÀ GIỮ NGUYÊN responseMimeType: "application/json" (YÊU CẦU 2 & 3)
+      async function handleGeminiVisionAnalyze() {
+        const apiKey = getStoredGeminiKey();
+        if (!apiKey) {
+          showToast('Vui lòng cấu hình Gemini API Key trong Cài đặt (nhấn vào Logo FPOSE) trước khi sử dụng AI Phân tích.', 'warning');
+          switchTab('settings');
+          return;
+        }
+
+        if (!state.pendingDraft || !state.pendingDraft.baseCanvas) {
+          showToast('Vui lòng nạp hình ảnh mẫu trước khi yêu cầu AI phân tích.', 'warning');
+          return;
+        }
+
+        const aiBtn = document.getElementById('geminiAnalyzeBtn');
+        const origBtnText = aiBtn.innerHTML;
+        aiBtn.disabled = true;
+        aiBtn.innerHTML = `<span>⏳ Đang phân tích hình ảnh...</span>`;
+        showToast('Đang gửi ảnh tới Gemini 3.8 Flash Vision...', 'info');
+
+        try {
+          const compressedOut = await canvasToWebPBlob(state.pendingDraft.baseCanvas, 720, 0.76);
+          const base64DataUrl = await blobToBase64(compressedOut.blob);
+          const base64Clean = base64DataUrl.split(',')[1];
+          const mimeType = compressedOut.blob.type || 'image/webp';
+
+          const promptText = `Bạn là trợ lý AI chuyên nghiệp phân tích nhiếp ảnh thời trang và chân dung. Hãy phân tích bức ảnh này và trả về kết quả định dạng JSON thuần túy (không kèm markdown block code nào khác ngoài JSON hợp lệ) với các trường chính xác như sau:
+{
+  "framing": "Một trong các giá trị: 'Cận mặt', 'Bán thân', 'Nửa người', 'Toàn thân'",
+  "poseGroup": "Một trong các giá trị: 'Đứng', 'Ngồi', 'Chuyển động', 'Chân dung cận'",
+  "headAngle": "Một trong các giá trị: 'Chính diện', 'Góc 3/4', 'Góc nghiêng 90°', 'Cúi nhẹ cằm', 'Ngoái qua vai'",
+  "eyeGaze": "Một trong các giá trị: 'Nhìn thẳng ống kính', 'Nhìn lệch khung hình', 'Nhìn xuống', 'Nhắm mắt', 'Nheo mắt nhẹ'",
+  "smileType": "Một trong các giá trị: 'Cười mỉm', 'Cười tươi lộ răng', 'Môi khép lạnh lùng', 'Hơi hé môi'",
+  "vibe": "Một trong các giá trị: 'Trong trẻo', 'Sắc sảo/Editorial', 'Đời thường tự nhiên', 'Trầm tư/Moody', 'Tinh nghịch'",
+  "handPose": "Một trong các giá trị: 'Chạm mặt/tóc', 'Đút túi', 'Cầm đạo cụ', 'Tựa điểm tựa', 'Dồn trọng tâm 1 chân'",
+  "context": "Một trong các giá trị: 'Trong nhà / Cửa sổ', 'Studio / Phông trơn', 'Ngoài trời nắng gắt', 'Giờ vàng (Golden Hour)', 'Bóng râm / Trời mây', 'Ban đêm / Đèn phố'",
+  "focalLengthEstimate": "Ví dụ: '35mm', '50mm', '85mm' hoặc '105mm'",
+  "poseNote": "1 câu ngắn gọn bằng tiếng Việt hướng dẫn nhiếp ảnh gia nhắc mẫu tạo lại đúng dáng và thần thái này."
+}`;
+
+          const requestBody = {
+            contents: [
+              {
+                parts: [
+                  { text: promptText },
+                  {
+                    inlineData: {
+                      mimeType: mimeType,
+                      data: base64Clean
+                    }
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          };
+
+          // Sử dụng hàm gọi với cơ chế fallback thông minh
+          const result = await callGeminiWithFallback(apiKey, requestBody);
+          const candidate = result.data.candidates?.[0];
+          const textResponse = candidate?.content?.parts?.[0]?.text;
+
+          if (!textResponse) {
+            throw new Error('AI không trả về kết quả phân tích.');
+          }
+
+          let parsedJson;
+          try {
+            let cleaned = textResponse.trim();
+            if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json/, '');
+            if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```/, '');
+            if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+            parsedJson = JSON.parse(cleaned.trim());
+          } catch (parseErr) {
+            throw new Error('Định dạng JSON trả về từ AI không hợp lệ.');
+          }
+
+          // Tự động điền dữ liệu vào form
+          if (parsedJson.framing) {
+            const el = document.getElementById('inFraming');
+            if (el) el.value = parsedJson.framing;
+          }
+          if (parsedJson.poseGroup) {
+            const el = document.getElementById('inPoseGroup');
+            if (el) el.value = parsedJson.poseGroup;
+          }
+          if (parsedJson.headAngle) {
+            const el = document.getElementById('inHeadAngle');
+            if (el) el.value = parsedJson.headAngle;
+          }
+          if (parsedJson.eyeGaze) {
+            const el = document.getElementById('inGaze');
+            if (el) el.value = parsedJson.eyeGaze;
+          }
+          if (parsedJson.smileType) {
+            const el = document.getElementById('inSmile');
+            if (el) el.value = parsedJson.smileType;
+          }
+          if (parsedJson.vibe) {
+            const el = document.getElementById('inMood');
+            if (el) el.value = parsedJson.vibe;
+          }
+          if (parsedJson.handPose) {
+            const el = document.getElementById('inHandPose');
+            if (el) el.value = parsedJson.handPose;
+          }
+          if (parsedJson.context) {
+            const el = document.getElementById('inContext');
+            if (el) el.value = parsedJson.context;
+          }
+          if (parsedJson.focalLengthEstimate) {
+            const numStr = parsedJson.focalLengthEstimate.replace(/\D/g, '');
+            if (numStr) {
+              const el = document.getElementById('inFocal');
+              if (el && !el.value) el.value = numStr;
+            }
+          }
+          if (parsedJson.poseNote) {
+            const el = document.getElementById('inPoseCues');
+            if (el) el.value = parsedJson.poseNote;
+          }
+
+          showToast(`✨ AI đã phân tích và điền tự động thành công (Model: ${result.usedModel})!`, 'success');
+        } catch (err) {
+          showToast(`Lỗi phân tích AI: ${err.message}`, 'error');
+        } finally {
+          aiBtn.disabled = false;
+          aiBtn.innerHTML = origBtnText;
+        }
+      }
+
+      function refreshAnalyzerDiagram() {
+        const dir = document.getElementById('inLightDir').value;
+        const hasReflector = document.getElementById('inHasReflector').checked;
+        const hasRim = document.getElementById('inHasRim').checked;
+        const hasSunBacklight = document.getElementById('inHasSunBacklight').checked;
+        const focal = document.getElementById('inFocal').value;
+
+        document.getElementById('diagramCaption').textContent = dir.split('(')[0].trim();
+        document.getElementById('analyzerLightingSvg').innerHTML = renderLightingDiagramSvg({
+          keyDir: dir,
+          hasReflector,
+          hasRim,
+          hasSunBacklight,
+          focalLabel: focal ? `${focal}mm` : 'CAM'
+        });
+      }
+
+      // =========================================================
+      // 9. EVENT BINDINGS & INIT
+      // =========================================================
+      function bindEvents() {
+        document.querySelectorAll('[data-tab]').forEach((btn) => {
+          btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        document.getElementById('brandSettingsBtn').addEventListener('click', () => switchTab('settings'));
+        document.getElementById('backToLibraryBtn').addEventListener('click', () => switchTab('library'));
+
+        document.getElementById('quickAddBtn').addEventListener('click', () => switchTab('analyze'));
+        document.getElementById('emptyUploadBtn').addEventListener('click', () => switchTab('analyze'));
+        document.getElementById('emptyDemoBtn').addEventListener('click', loadDemoSamples);
+        document.getElementById('goLibraryFromShotBtn').addEventListener('click', () => switchTab('library'));
+        document.getElementById('storageStatusBtn').addEventListener('click', () => switchTab('settings'));
+
+        const geminiAnalyzeBtn = document.getElementById('geminiAnalyzeBtn');
+        if (geminiAnalyzeBtn) {
+          geminiAnalyzeBtn.addEventListener('click', handleGeminiVisionAnalyze);
+        }
+
+        bindSettingsApiKeyEvents();
+
+        document.getElementById('modalToggleEditBtn').addEventListener('click', () => {
+          if (state.currentModalSampleId) {
+            openSampleModal(state.currentModalSampleId, !state.modalEditMode);
+          }
+        });
+
+        const filterIds = ['searchInput', 'filterFraming', 'filterFocal', 'filterContext', 'filterPoseGroup'];
+        filterIds.forEach((id) => {
+          const el = document.getElementById(id);
+          el.addEventListener('input', renderLibrary);
+          el.addEventListener('change', renderLibrary);
+        });
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+          filterIds.forEach((id) => { document.getElementById(id).value = ''; });
+          renderLibrary();
+        });
+
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+          document.getElementById('detailModal').classList.add('hidden');
+        });
+        document.getElementById('detailModal').addEventListener('click', (e) => {
+          if (e.target.id === 'detailModal') document.getElementById('detailModal').classList.add('hidden');
+        });
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropZone.classList.add('border-neutral-900', 'bg-neutral-100');
+        });
+        dropZone.addEventListener('dragleave', () => {
+          dropZone.classList.remove('border-neutral-900', 'bg-neutral-100');
+        });
+        dropZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('border-neutral-900', 'bg-neutral-100');
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleUploadedFile(e.dataTransfer.files[0]);
+          }
+        });
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleUploadedFile(e.target.files[0]);
+            e.target.value = '';
+          }
+        });
+
+        ['inLightDir', 'inHasReflector', 'inHasRim', 'inHasSunBacklight', 'inFocal'].forEach((id) => {
+          document.getElementById(id).addEventListener('change', refreshAnalyzerDiagram);
+          document.getElementById(id).addEventListener('input', refreshAnalyzerDiagram);
+        });
+
+        document.getElementById('cancelAnalyzeBtn').addEventListener('click', () => {
+          if (state.pendingDraft && state.pendingDraft.tempUrl) URL.revokeObjectURL(state.pendingDraft.tempUrl);
+          state.pendingDraft = null;
+          document.getElementById('analyzerWorkspace').classList.add('hidden');
+          document.getElementById('analyzerIdleHint').classList.remove('hidden');
+        });
+
+        document.getElementById('saveSampleForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (!state.pendingDraft) return;
+
+          const focalVal = document.getElementById('inFocal').value;
+          const apertureVal = document.getElementById('inAperture').value;
+          const isoVal = document.getElementById('inIso').value;
+          const pa = state.pendingDraft.analysis;
+          const dirVal = document.getElementById('inLightDir').value;
+          const hasReflector = document.getElementById('inHasReflector').checked;
+          const hasRim = document.getElementById('inHasRim').checked;
+          const hasSunBacklight = document.getElementById('inHasSunBacklight').checked;
+
+          const secParts = [];
+          if (hasSunBacklight) secParts.push('Có ánh sáng mặt trời ngược nắng (Sun Rim/Flare)');
+          if (hasRim) secParts.push('Có đèn ven tách tóc/vai (Rim Light)');
+          if (hasReflector) secParts.push('Có hắt sáng/fill nâng chi tiết vùng che khuất');
+
+          const newSample = {
+            id: generateId(),
+            title: document.getElementById('inTitle').value.trim() || 'Mẫu ảnh mới',
+            createdAt: Date.now(),
+            thumbBlob: state.pendingDraft.thumbBlob,
+            previewBlob: state.pendingDraft.previewBlob,
+            width: state.pendingDraft.width,
+            height: state.pendingDraft.height,
+            exif: {
+              focalLength: focalVal ? Number(focalVal) : '',
+              aperture: apertureVal ? Number(apertureVal) : '',
+              shutter: document.getElementById('inShutter').value.trim(),
+              iso: isoVal ? Number(isoVal) : ''
+            },
+            analysis: {
+              lightingDirection: dirVal,
+              lightingQuality: document.getElementById('inLightQuality').value,
+              vectorSummary: pa.vectorSummary,
+              secondarySummary: secParts.length ? secParts.join(' · ') : 'Sử dụng 1 nguồn sáng chính.',
+              hasReflector,
+              hasRim,
+              hasSunBacklight,
+              cct: pa.cct,
+              toneLabel: pa.toneLabel,
+              contrastRms: pa.contrastRms,
+              highPct: pa.highPct,
+              shadowPct: pa.shadowPct,
+              palette: pa.palette
+            },
+            pose: {
+              poseGroup: document.getElementById('inPoseGroup').value,
+              context: document.getElementById('inContext').value,
+              framing: document.getElementById('inFraming').value,
+              angle: document.getElementById('inAngle').value,
+              headAngle: document.getElementById('inHeadAngle').value,
+              gaze: document.getElementById('inGaze').value,
+              smile: document.getElementById('inSmile').value,
+              mood: document.getElementById('inMood').value,
+              handPose: document.getElementById('inHandPose').value,
+              cues: document.getElementById('inPoseCues').value.trim()
+            },
+            setupNote: document.getElementById('inSetupNote').value.trim()
+          };
+
+          await idb.put(STORE_SAMPLES, newSample);
+          state.samples.unshift(newSample);
+
+          if (state.pendingDraft.tempUrl) URL.revokeObjectURL(state.pendingDraft.tempUrl);
+          state.pendingDraft = null;
+          document.getElementById('analyzerWorkspace').classList.add('hidden');
+          document.getElementById('analyzerIdleHint').classList.remove('hidden');
+
+          renderLibrary();
+          await updateStorageMetrics();
+          switchTab('library');
+          showToast('Đã lưu mẫu WebP vào IndexedDB.', 'success');
+        });
+
+        document.getElementById('exportJsonBtn').addEventListener('click', async () => {
+          try {
+            showToast('Đang tạo tệp sao lưu JSON...', 'info');
+            const serializedSamples = await Promise.all(state.samples.map(async (s) => {
+              const [thumbBase64, previewBase64] = await Promise.all([
+                blobToBase64(s.thumbBlob),
+                blobToBase64(s.previewBlob)
+              ]);
+              const { thumbBlob, previewBlob, ...rest } = s;
+              return { ...rest, thumbBase64, previewBase64 };
+            }));
+
+            const serializedShots = await Promise.all(state.shotList.map(async (item) => {
+              const thumbBase64 = await blobToBase64(item.thumbBlob);
+              const { thumbBlob, ...rest } = item;
+              return { ...rest, thumbBase64 };
+            }));
+
+            const payload = {
+              app: 'FPOSE',
+              version: 2,
+              exportedAt: new Date().toISOString(),
+              samples: serializedSamples,
+              shotList: serializedShots
+            };
+
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fpose-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Đã xuất tệp sao lưu thành công.', 'success');
+          } catch (_) {
+            showToast('Có lỗi khi xuất tệp JSON.', 'error');
+          }
+        });
+
+        document.getElementById('importJsonInput').addEventListener('change', async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          try {
+            showToast('Đang khôi phục dữ liệu vào IndexedDB...', 'info');
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            if (!Array.isArray(parsed.samples)) throw new Error('INVALID_FORMAT');
+
+            for (const raw of parsed.samples) {
+              const thumbBlob = base64ToBlob(raw.thumbBase64 || raw.imageDataUrl);
+              const previewBlob = base64ToBlob(raw.previewBase64 || raw.imageDataUrl) || thumbBlob;
+              if (!previewBlob) continue;
+
+              const { thumbBase64, previewBase64, imageDataUrl, ...cleanMeta } = raw;
+              const record = {
+                ...cleanMeta,
+                id: String(cleanMeta.id || generateId()),
+                thumbBlob: thumbBlob || previewBlob,
+                previewBlob
+              };
+              await idb.put(STORE_SAMPLES, record);
+            }
+
+            if (Array.isArray(parsed.shotList)) {
+              for (const rawShot of parsed.shotList) {
+                const thumbBlob = base64ToBlob(rawShot.thumbBase64 || rawShot.thumb);
+                const { thumbBase64, thumb, ...cleanShot } = rawShot;
+                await idb.put(STORE_SHOTLIST, {
+                  ...cleanShot,
+                  id: String(cleanShot.id || generateId()),
+                  thumbBlob
+                });
+              }
+            }
+
+            await reloadFromIndexedDB();
+            showToast('Khôi phục dữ liệu thành công!', 'success');
+          } catch (_) {
+            showToast('Tệp JSON không hợp lệ.', 'error');
+          } finally {
+            e.target.value = '';
+          }
+        });
+
+        document.getElementById('refreshStorageBtn').addEventListener('click', async () => {
+          await updateStorageMetrics();
+          showToast('Đã làm mới số liệu dung lượng.', 'info');
+        });
+
+        document.getElementById('clearAllDataBtn').addEventListener('click', async () => {
+          if (confirm('Xóa toàn bộ dữ liệu mẫu ảnh và Shot List?')) {
+            await idb.clear(STORE_SAMPLES);
+            await idb.clear(STORE_SHOTLIST);
+            for (const url of state.objectUrls.values()) URL.revokeObjectURL(url);
+            state.objectUrls.clear();
+            state.samples = [];
+            state.shotList = [];
+            renderLibrary();
+            renderShotList();
+            await updateStorageMetrics();
+            showToast('Đã xóa toàn bộ dữ liệu.', 'info');
+          }
+        });
+      }
+
+      async function reloadFromIndexedDB() {
+        const [samples, shots] = await Promise.all([
+          idb.getAll(STORE_SAMPLES),
+          idb.getAll(STORE_SHOTLIST)
+        ]);
+        state.samples = samples.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        state.shotList = shots;
+        renderLibrary();
+        renderShotList();
+        await updateStorageMetrics();
+      }
+
+      async function init() {
+        const savedTab = loadSmallPref(META_KEY_TAB, 'library');
+        bindEvents();
+        initSettingsUI();
+        try {
+          await reloadFromIndexedDB();
+        } catch (_) {
+          showToast('Trình duyệt đang hạn chế IndexedDB.', 'warning');
+        }
+        switchTab(['library', 'analyze', 'shotlist', 'settings'].includes(savedTab) ? savedTab : 'library');
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
